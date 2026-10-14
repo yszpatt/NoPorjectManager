@@ -338,10 +338,10 @@ npm run smoke:api      # 看板 REST API 冒烟：静态页 + 项目 CRUD + 计�
 | 阶段 | 内容 | 状态 |
 |---|---|---|
 | P0 | 数据层（Markdown 事实源 + SQLite 索引 + 配置） | ✅ 已完成 |
-| P1 | MCP 服务（20 个工具 + stdio/HTTP 双传输） | ✅ 已完成 |
+| P1 | MCP 服务（22 个工具 + stdio/HTTP 双传输） | ✅ 已完成 |
 | P2 | Skill + Hooks（会话自动带出计划、收尾自动采集） | ✅ 已完成 |
 | P3 | Git 采集器增强（定时任务、PR/Issue 关联） | 🟡 基础能力已完成 |
-| P4 | Web 看板 UI（Board / 时间线 / 今日 / 表格 四视图 + 详情抽屉） | ✅ 已完成 |
+| P4 | Web 看板 UI（看板 / 动态流 / 今日 / 表格 四视图 + 详情抽屉） | ✅ 已完成 |
 | P5 | 日程智能（已改为围绕后续计划推导；LLM 参与取舍、周报生成待做） | 🟡 规则版已完成 |
 | P6 | 适配器生态（Jira / Linear / GitHub / CI 接入） | ⬜ 未开始 |
 
@@ -351,3 +351,7 @@ npm run smoke:api      # 看板 REST API 冒烟：静态页 + 项目 CRUD + 计�
 - Git（用于 commit 采集，可选）
 
 所有入口通过 `bin/pm.mjs` 启动，它会带上 `--disable-warning=ExperimentalWarning` 屏蔽 SQLite 实验特性告警，保证 MCP stdio 的 stderr 干净。
+
+## 许可
+
+[MIT](LICENSE)。`.projectmanager/` 目录（看板的运行时数据）默认不入库，见 `.gitignore` 里的说明。
