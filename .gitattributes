@@ -1,0 +1,7 @@
+# 统一换行符。Windows 上如果按 CRLF 检出，容器里的 shell 脚本会因为
+# 首行 `#!/bin/sh\r` 找不到解释器而直接启动失败，必须在版本库层面钉死。
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary

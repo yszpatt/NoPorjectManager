@@ -124,10 +124,13 @@ src/
 └── app.ts                 # 组合根
 
 web/                       # 看板前端（React + Vite + Tailwind v4，图表为自绘 SVG）
-├── src/views/             # Board / Timeline / Today / Table 四视图
+├── src/views/             # Board / Feed / Today / Table 四视图
 └── src/components/        # 抽屉、进度环、迷你趋势、Markdown 渲染等
 bin/pm.mjs                 # pm 可执行入口
-scripts/                   # 冒烟测试
+scripts/                   # 冒烟测试、容器健康检查
+Dockerfile                 # 多阶段构建（前端在镜像内构建）
+docker-compose.yml         # 数据卷 / 端口 / 令牌 / 时区
+docker-entrypoint.sh       # 无 PM_TOKEN 时自动生成并持久化
 .codebuddy/
 ├── skills/project-manager/   # Agent Skill（SKILL.md + references）
 ├── hooks/                    # SessionStart / SessionEnd 脚本
@@ -322,6 +325,75 @@ node bin/pm.mjs ui --lan --token <随机字符串>      # 推荐：同时开启�
 - **进展记录默认只显示最近 6 条**，需要时再展开全部
 - **阻塞列里不再重复「处于阻塞」**：列标题已经说明了状态，卡片上不重复零信息量的话
 
+## Docker 部署
+
+```bash
+docker compose up -d --build
+docker compose logs -f board      # 访问令牌会打印在这里
+```
+
+然后打开 `http://<主机>:8930/?token=<日志里的令牌>`。数据落在具名卷 `pm-data`，`docker compose down` 不会丢。
+
+### 访问令牌是强制的
+
+容器里**必须**绑定 `0.0.0.0`，否则端口映射进不来——也就是说容器版默认就是「对外暴露」。而看板只有一个共享令牌，缺失时同网络内任何人都能读写、归档甚至删除数据。因此入口脚本在没给 `PM_TOKEN` 时会**自动生成一个**，打印到日志，并持久化到数据卷的 `.token`（重启复用，不会让浏览器里存的令牌失效）。
+
+```bash
+docker logs no-project-manager | grep 访问令牌
+```
+
+想固定成自己的令牌，在项目根目录建 `.env`（已被 `.gitignore` 忽略）：
+
+```
+PM_TOKEN=换成一段随机字符串
+```
+
+确实不需要令牌时设 `PM_ALLOW_ANONYMOUS=1`，并建议同时把端口收回回环：
+
+```yaml
+ports:
+  - "127.0.0.1:8930:8930"
+```
+
+### 数据与仓库
+
+| 挂载 | 用途 |
+|---|---|
+| `pm-data:/data` | 看板全部数据（Markdown 事实源 + SQLite 索引）。**唯一需要长期保留的东西** |
+| `<你的代码目录>:/repos:ro` | 可选，想让容器内也能同步 Git 提交记录时才需要 |
+
+用绑定挂载代替具名卷时注意权限——容器以 uid 1000（`node`）运行：
+
+```bash
+mkdir -p ./pm-data && sudo chown -R 1000:1000 ./pm-data
+docker run -d -p 8930:8930 -v ./pm-data:/data no-project-manager:local
+```
+
+Git 同步还要多一步：容器内的仓库路径与宿主机不同，挂到 `/repos/xxx` 后要把项目仓库地址改成**容器内**路径。
+
+```bash
+docker exec no-project-manager node bin/pm.mjs link videorag --path /repos/videorag
+```
+
+### 时区
+
+容器默认 UTC，而「今天是哪天」直接决定每日计划与动态流的日期分组。compose 里已设 `TZ=Asia/Shanghai`（镜像装了 `tzdata`），换时区改这个变量即可。
+
+### 也支持只跑 MCP 服务
+
+```bash
+docker run -d -p 127.0.0.1:8931:8931 -v pm-data:/data no-project-manager:local \
+  node bin/pm.mjs mcp http
+```
+
+> ⚠️ MCP(HTTP) 服务**没有任何鉴权**。端口一旦对外，等于公开看板数据的读写权限——请只绑回环，或放进受控网络。
+
+要在**宿主机**上以 stdio 方式接给本机 Agent，直接跑 `node bin/pm.mjs mcp stdio` 比绕 Docker 简单。
+
+### 镜像构成
+
+多阶段构建：前端在镜像内构建，运行阶段只装 `--omit=dev` 的依赖；以非 root（`node`，uid 1000）运行；内建 `git` 与 `tzdata`；自带 `HEALTHCHECK`（探测 `/api/health`，令牌从环境变量或数据卷的 `.token` 读取）。构建时会先校验基础镜像是否带内建 `node:sqlite`——缺了就在构建阶段失败，而不是等到运行。
+
 ## 验证
 
 ```bash
@@ -351,6 +423,8 @@ npm run smoke:api      # 看板 REST API 冒烟：静态页 + 项目 CRUD + 计�
 - Git（用于 commit 采集，可选）
 
 所有入口通过 `bin/pm.mjs` 启动，它会带上 `--disable-warning=ExperimentalWarning` 屏蔽 SQLite 实验特性告警，保证 MCP stdio 的 stderr 干净。
+
+不想装 Node 也可以用 [Docker 部署](#docker-部署)，镜像里已经包含与上面同版本的运行时。
 
 ## 许可
 

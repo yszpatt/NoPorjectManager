@@ -1,0 +1,26 @@
+# 构建上下文里没必要出现的东西。node_modules 尤其重要：
+# 本机装的是 Windows 原生模块，拷进去会污染镜像。
+node_modules
+**/node_modules
+
+# 前端产物在镜像内构建（web 阶段跑 npm run build），不要带本机的
+web/dist
+
+# 看板的运行时数据：属于使用者本地，不进镜像。
+# 镜像里 /data 是挂载点，首次启动会自动初始化。
+.projectmanager
+
+# 开发与验证产物
+.artifacts
+.tmp-*
+*.log
+
+# 版本控制与文档
+.git
+.gitignore
+.gitattributes
+
+# Docker 自身（注意：docker-entrypoint.sh 必须留在上下文里，Dockerfile 要 COPY 它）
+Dockerfile
+docker-compose.yml
+.dockerignore
