@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "description": "本地优先的项目管理看板：Markdown 事实源 + SQLite 索引 + MCP 服务 + Agent Skill",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yszpatt/NoProjectManager.git"
+  },
   "engines": {
     "node": ">=22.5.0"
   },
