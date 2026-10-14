@@ -1,0 +1,166 @@
+@import 'tailwindcss';
+
+/* 类策略深浅色：由 <html class="dark"> 控制 */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * 语义化设计令牌。Tailwind v4 会把 --color-* 编译成
+ * bg-canvas / text-ink / border-line 这类工具类，且工具类引用的是 CSS 变量，
+ * 因此只需在 .dark 中覆盖变量即可整体换肤。
+ */
+@theme {
+  --color-canvas: #f4f5f8;
+  --color-surface: #ffffff;
+  --color-surface-2: #fafbfd;
+  --color-line: #e5e8ee;
+  --color-line-strong: #d3d8e2;
+  --color-ink: #141926;
+  --color-ink-soft: #4d5769;
+  --color-ink-mute: #8892a4;
+  --color-accent: #4f46e5;
+  --color-accent-soft: #eef0ff;
+  --color-ok: #059669;
+  --color-warn: #c2740a;
+  --color-danger: #dc2f52;
+  --color-info: #0284c7;
+  --color-idle: #64748b;
+
+  --radius-card: 0.875rem;
+  --font-sans:
+    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+}
+
+.dark {
+  --color-canvas: #0a0d14;
+  --color-surface: #111725;
+  --color-surface-2: #151d2c;
+  --color-line: #212b3d;
+  --color-line-strong: #2e3a50;
+  --color-ink: #e9edf5;
+  --color-ink-soft: #a6b1c6;
+  --color-ink-mute: #6c7889;
+  --color-accent: #8d95ff;
+  --color-accent-soft: #1c2338;
+  --color-ok: #34d399;
+  --color-warn: #e0a33a;
+  --color-danger: #fb7185;
+  --color-info: #38bdf8;
+  --color-idle: #94a3b8;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* 数字统一等宽，避免进度跳动时抖动 */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 细滚动条 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-line-strong);
+  border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-ink-mute);
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@keyframes pm-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.fade-up {
+  animation: pm-fade-up 0.18s ease-out both;
+}
+
+@keyframes pm-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.slide-in {
+  animation: pm-slide-in 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* 卡片悬浮：轻微抬升 + 边框变亮，克制不喧哗 */
+.card-hover {
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.16s ease,
+    border-color 0.16s ease;
+}
+.card-hover:hover {
+  transform: translateY(-1px);
+  border-color: var(--color-line-strong);
+  box-shadow: 0 6px 20px -12px rgb(15 23 42 / 0.28);
+}
+
+/* 多行截断 */
+.clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* 进度环、迷你图等 SVG 内的文字 */
+svg text {
+  font-family: var(--font-sans);
+}
+
+input[type='checkbox'] {
+  accent-color: var(--color-accent);
+}
+
+textarea,
+input,
+select {
+  color-scheme: light dark;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}

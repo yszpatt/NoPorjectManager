@@ -1,0 +1,41 @@
+{
+  "name": "no-project-manager",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "本地优先的项目管理看板：Markdown 事实源 + SQLite 索引 + MCP 服务 + Agent Skill",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "bin": {
+    "pm": "./bin/pm.mjs"
+  },
+  "scripts": {
+    "cli": "node bin/pm.mjs",
+    "seed": "node bin/pm.mjs seed",
+    "reindex": "node bin/pm.mjs reindex",
+    "mcp:stdio": "node bin/pm.mjs mcp stdio",
+    "mcp:http": "node bin/pm.mjs mcp http",
+    "ui": "node bin/pm.mjs ui",
+    "ui:install": "npm --prefix web install",
+    "ui:build": "npm --prefix web run build",
+    "ui:dev": "npm --prefix web run dev",
+    "ui:typecheck": "npm --prefix web run typecheck",
+    "typecheck:all": "npm run typecheck && npm run ui:typecheck",
+    "smoke": "node --disable-warning=ExperimentalWarning node_modules/tsx/dist/cli.mjs scripts/smoke-mcp.ts",
+    "smoke:http": "node --disable-warning=ExperimentalWarning node_modules/tsx/dist/cli.mjs scripts/smoke-http.ts",
+    "smoke:api": "node --disable-warning=ExperimentalWarning node_modules/tsx/dist/cli.mjs scripts/smoke-api.ts",
+    "test:merge": "node --disable-warning=ExperimentalWarning node_modules/tsx/dist/cli.mjs scripts/test-merge.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.1.0",
+    "yaml": "^2.6.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

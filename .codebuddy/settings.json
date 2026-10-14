@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CODEBUDDY_PROJECT_DIR}/.codebuddy/hooks/session-start.mjs\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CODEBUDDY_PROJECT_DIR}/.codebuddy/hooks/session-end.mjs\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
