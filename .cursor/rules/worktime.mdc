@@ -1,0 +1,21 @@
+---
+description: WorkTime 项目工作规则（看板 / Kindle 副屏 / 小爱音箱三条链路）
+globs:
+alwaysApply: true
+---
+
+# WorkTime 规则（本仓库通用）
+
+规则正文在 [`AGENTS.md`](../../AGENTS.md)。**每次开工前读它。**
+
+必须记住的四条：
+
+1. **开场先取计划**：`pm_get_daily_plan`；`status: none` 才 `pm_generate_daily_plan`。
+   不要改写已生成的计划标题。
+2. **提交带 sha 汇报**：`pm_report_progress(no-project-manager, content, refs={commit})`。
+   `content` = 首行结论 + 分条（每条以 `完成`/`调整`/`修复`/`决策`/`卡点`/`问题`/`验证`/`下一步` 开头）。
+3. **收尾三件套**：看板 → Kindle 副屏 → 小爱语音，顺序固定，**一个任务各一次**。
+   中间步骤不发副屏、不语音。
+4. **提交标题**：`<type>(<scope>): <中文一句话>`；禁止 `--no-verify`。
+
+体检命令：`python3 scripts/worktime.py check`

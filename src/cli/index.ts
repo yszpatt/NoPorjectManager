@@ -180,12 +180,19 @@ async function main(): Promise<void> {
   if (cmd === 'serve' || cmd === 'ui') {
     const { startApiServer } = await import('../api/server.ts');
     const lan = bool(flags, 'lan');
+    // --token 是 Basic 改造前的旧参数，保留为别名：老启动命令（可能写在
+    // README、脚本或计划任务里）若被当成未知参数丢掉，服务会静默变成"无口令"，
+    // 而它往往绑在 0.0.0.0 上 —— 那是比报错更糟的结果。
+    const legacyToken = str(flags, 'token');
+    if (legacyToken && !str(flags, 'password')) {
+      console.error('[project-manager] 提示: --token 已更名为 --password，本次按 --password 处理');
+    }
     startApiServer({
       port: num(flags, 'port'),
       // --lan 等价于绑定所有网卡；也可用 --host 指定具体地址
       host: str(flags, 'host') ?? (lan ? '0.0.0.0' : undefined),
       user: str(flags, 'user'),
-      password: str(flags, 'password') ?? null,
+      password: str(flags, 'password') ?? legacyToken ?? null,
       mcp: !bool(flags, 'no-mcp'),
     });
     return;
