@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { App } from '../app.ts';
 import { analyzeRisks } from '../core/risk.ts';
 import type { CreateProjectInput } from '../core/project-service.ts';
-import type { ProjectFilter, ProjectStatus, UpdateType } from '../core/types.ts';
+import type { ProjectFilter, ProjectStatus, ProjectView, UpdateType } from '../core/types.ts';
 import { syncGit } from '../collectors/git.ts';
 import { mergeConfig } from '../store/config.ts';
 
@@ -40,6 +40,23 @@ const READ_ONLY = { readOnlyHint: true, openWorldHint: false } as const;
 const WRITE = { readOnlyHint: false, destructiveHint: false, openWorldHint: false } as const;
 
 /**
+ * 写操作的回执：只回「改了什么」，不回显整个项目对象。
+ *
+ * 完整 ProjectView 有 2KB 以上，且随 roadmap / goals 数量线性增长；
+ * Agent 每次写入都要为它付一遍上下文成本，而其中真正用得上的只有 id 与 progress。
+ * 需要完整字段时显式调用 pm_get_project。
+ */
+function receipt(p: ProjectView, extra: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    id: p.id,
+    status: p.status,
+    progress: p.progress,
+    updated_at: p.updated_at,
+    ...extra,
+  };
+}
+
+/**
  * 构建 MCP Server：所有工具都在这里注册，
  * stdio 与 HTTP 两种传输共用同一份定义。
  */
@@ -54,19 +71,12 @@ export function createPmServer(app: App): McpServer {
     },
     {
       instructions: [
-        '这是本地项目看板的 MCP 服务，数据以 Markdown 为事实源、SQLite 为索引。',
-        '它按「项目档案」组织，面向独立开发的自用小工具：',
-        '关注 思考记录 / 后续计划 / 发布记录；进度百分比与截止日期只是辅助字段。',
-        '典型用法：',
-        '1) 会话开始调用 pm_get_daily_plan（没有则 pm_generate_daily_plan）拿到今日计划；',
-        '2) 产生新想法、结论或决策时用 pm_report_progress（type=note）记一条；',
-        '   汇报已提交的改动时务必带上 refs: { commit }（多个用 refs: { commits }）——',
-        '   看板会据此把提交并进这条汇报；不带则同一件事会显示成两行。',
-        '   注意：一件事只留一条记录。提交标题已经说清了就别再汇报。',
-        '3) 发布了一个版本用 pm_report_release 留档（版本号必填）；',
-        '4) 想清楚下一步后立刻用 pm_upsert_roadmap_item 写下来 ——',
-        '   每日计划完全由后续计划推导，没有计划就推导不出任何具体动作；',
-        '5) 想知道「最近都在忙什么」用 pm_get_feed；需要提醒用 pm_check_reminders。',
+        '本地项目看板：按「项目档案」组织，看重思考记录 / 后续计划 / 发布记录，进度与截止日期只是辅助字段。',
+        '三个核心动作：',
+        '1) 会话开始看今日计划（pm_get_daily_plan）；',
+        '2) 想清楚下一步就 pm_upsert_roadmap_item —— 每日计划完全由它推导；',
+        '3) 有想法/决策/进展就 pm_report_progress，已提交的改动带上 refs: { commit }，一件事只留一条记录。',
+        '详细规范见 project-manager Skill。',
       ].join('\n'),
     },
   );
@@ -77,14 +87,13 @@ export function createPmServer(app: App): McpServer {
     'pm_list_projects',
     {
       title: '列出项目',
-      description:
-        '按状态/健康度/标签/优先级/关键词筛选项目。默认返回精简卡片（节省上下文），detail=full 返回完整字段。',
+      description: '筛选项目。默认返回精简卡片，detail=full 返回完整字段。',
       inputSchema: {
-        status: z.array(z.enum(STATUS)).optional().describe('按状态筛选'),
-        health: z.array(z.enum(HEALTH)).optional().describe('按健康度筛选'),
+        status: z.array(z.enum(STATUS)).optional(),
+        health: z.array(z.enum(HEALTH)).optional(),
         priority: z.array(z.enum(PRIORITY)).optional(),
-        tags: z.array(z.string()).optional().describe('任一标签命中即返回'),
-        query: z.string().optional().describe('关键词，匹配名称/描述/正文/标签'),
+        tags: z.array(z.string()).optional(),
+        query: z.string().optional().describe('匹配名称/描述/正文/标签'),
         include_archived: z.boolean().optional().default(false),
         limit: z.number().int().positive().optional(),
         detail: z.enum(['card', 'full']).optional().default('card'),
@@ -122,10 +131,16 @@ export function createPmServer(app: App): McpServer {
     'pm_get_project',
     {
       title: '查看项目详情',
-      description: '读取单个项目的完整信息，默认附带最近时间线（进展事件流）。',
+      description: '读取单个项目的完整信息，附带最近时间线。',
       inputSchema: {
-        id: z.string().describe('项目 id'),
-        timeline_limit: z.number().int().positive().optional().default(30),
+        id: z.string(),
+        timeline_limit: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .default(15)
+          .describe('默认 15 条，回看更早历史时显式传大'),
       },
       annotations: READ_ONLY,
     },
@@ -140,8 +155,7 @@ export function createPmServer(app: App): McpServer {
     'pm_summary',
     {
       title: '全局汇总',
-      description:
-        '跨项目汇总：总数/状态分布/健康度分布/风险项目/滞涨项目/阻塞项目/临近 deadline，以及今日计划概况。适合作为规划前的全局视图。',
+      description: '跨项目汇总：总数与状态/健康度分布、风险、滞涨、阻塞、临近截止，以及今日计划概况。',
       inputSchema: {},
       annotations: READ_ONLY,
     },
@@ -169,8 +183,8 @@ export function createPmServer(app: App): McpServer {
     'pm_brief',
     {
       title: '今日简报',
-      description: '生成人类可读的当日简报（风险 + 滞涨 + 今日计划），适合直接注入上下文。',
-      inputSchema: { date: z.string().optional().describe('YYYY-MM-DD，默认今天') },
+      description: '人类可读的当日简报（风险 + 滞涨 + 今日计划），适合直接注入上下文。',
+      inputSchema: { date: z.string().optional().describe('默认今天') },
       annotations: READ_ONLY,
     },
     handler((args: { date?: string }) => plans.brief(args.date)),
@@ -181,15 +195,9 @@ export function createPmServer(app: App): McpServer {
     {
       title: '检查提醒',
       description:
-        '检查「计划停滞」提醒：哪些项目有明确想做的事、但已经很久没有新记录。' +
-        '只看后续计划与记录活跃度，不涉及进度百分比、截止日期或排期。',
+        '「计划停滞」提醒：哪些项目有想做却没记的事。只看计划与记录活跃度，不涉及进度与排期。',
       inputSchema: {
-        stalled_days: z
-          .number()
-          .int()
-          .positive()
-          .optional()
-          .describe('多少天没有新记录视为停滞，默认取配置值'),
+        stalled_days: z.number().int().positive().optional().describe('默认取配置值'),
         min_level: z.enum(['high', 'medium', 'low']).optional().default('low'),
       },
       annotations: READ_ONLY,
@@ -208,16 +216,13 @@ export function createPmServer(app: App): McpServer {
     'pm_get_feed',
     {
       title: '跨项目动态流',
-      description:
-        '按时间倒序读取所有项目的记录（思考、发布、计划、状态变更），可按项目或类型筛选。' +
-        '回答「最近都在忙什么」，也适合在总结某段时间的工作前先拉一遍。',
+      description: '按时间倒序读取所有项目的记录，回答「最近都在忙什么」。可按项目或类型筛选。',
       inputSchema: {
-        limit: z.number().int().positive().optional().default(60),
+        limit: z.number().int().positive().optional().default(30),
         project_id: z.string().optional(),
         types: z
           .array(z.enum(['progress', 'status', 'note', 'milestone', 'blocker', 'plan', 'release']))
-          .optional()
-          .describe('只取这些类型，省略则全部'),
+          .optional(),
       },
       annotations: READ_ONLY,
     },
@@ -233,16 +238,16 @@ export function createPmServer(app: App): McpServer {
     {
       title: '创建项目',
       description:
-        '新建一个项目。id 省略时由 name 生成。跨会话/跨仓库的项目都应在这里登记，之后才能被看板与每日计划覆盖。',
+        '新建项目。跨会话/跨仓库的项目都要在这里登记，才能被看板与每日计划覆盖。',
       inputSchema: {
-        name: z.string().describe('项目名称'),
-        description: z.string().optional().describe('一句话简介'),
-        id: z.string().optional().describe('自定义 id（默认由名称 slug 化）'),
+        name: z.string(),
+        description: z.string().optional(),
+        id: z.string().optional().describe('建议显式指定（ASCII），默认由名称生成'),
         status: z.enum(STATUS).optional().default('idea'),
         progress: z.number().min(0).max(100).optional().default(0),
         priority: z.enum(PRIORITY).optional().default('P2'),
         tags: z.array(z.string()).optional(),
-        target_date: z.string().optional().describe('YYYY-MM-DD'),
+        target_date: z.string().optional(),
         goals: z
           .array(
             z.object({
@@ -267,12 +272,12 @@ export function createPmServer(app: App): McpServer {
             }),
           )
           .optional(),
-        body: z.string().optional().describe('Markdown 正文（介绍/方案等）'),
+        body: z.string().optional().describe('Markdown 正文'),
         repos: z
           .array(z.object({ path: z.string().optional(), url: z.string().optional(), branch: z.string().optional() }))
           .optional()
-          .describe('关联的本地仓库路径，用于自动采集 commit'),
-        actor: z.string().optional().describe('操作者标识，如 agent 名称'),
+          .describe('关联本地仓库，用于采集 commit'),
+        actor: z.string().optional(),
       },
       annotations: WRITE,
     },
@@ -307,7 +312,7 @@ export function createPmServer(app: App): McpServer {
         actor: args.actor,
       });
       for (const repo of args.repos ?? []) projects.linkRepo(created.id, repo);
-      return created;
+      return receipt(created, { name: created.name, priority: created.priority });
     }),
   );
 
@@ -326,15 +331,17 @@ export function createPmServer(app: App): McpServer {
         priority: z.enum(PRIORITY).optional(),
         tags: z.array(z.string()).optional(),
         target_date: z.string().nullable().optional().describe('null 表示清除'),
-        custom: z.record(z.unknown()).optional().describe('自定义字段（扩展用）'),
+        custom: z.record(z.unknown()).optional(),
         body: z.string().optional(),
         actor: z.string().optional(),
       },
       annotations: WRITE,
     },
-    handler((args: Parameters<typeof projects.update>[1] & { id: string }) =>
-      projects.update(args.id, { ...args, source: 'agent' }),
-    ),
+    handler((args: Parameters<typeof projects.update>[1] & { id: string }) => {
+      const { id, ...patch } = args;
+      const p = projects.update(id, { ...patch, source: 'agent' });
+      return receipt(p, { changed: Object.keys(patch).filter((k) => k !== 'actor') });
+    }),
   );
 
   server.registerTool(
@@ -358,31 +365,27 @@ export function createPmServer(app: App): McpServer {
     {
       title: '汇报进展',
       description:
-        '追加一条进展事件，可同时修正进度。这是最常用的写入入口：完成一个阶段性工作就调用一次。' +
-        'progress 为绝对百分比，delta 为增量（二选一，progress 优先）。type=blocker 用于登记阻塞。',
+        '追加一条进展事件，可同时修正进度。最常用的写入入口。progress 为绝对百分比，delta 为增量（progress 优先）。',
       inputSchema: {
-        id: z.string().describe('项目 id'),
+        id: z.string(),
         content: z
           .string()
-          .describe(
-            '首行结论，空一行后分条列出，每条以 `完成`/`调整`/`修复`/`决策`/`卡点`/`问题` 等标签开头',
-          ),
+          .describe('首行结论，空行后分条列出，每条以 `完成`/`调整`/`修复`/`决策`/`卡点`/`问题` 开头'),
         type: z.enum(UPDATE_TYPE).optional().describe('默认按是否带进度自动判定'),
         progress: z.number().min(0).max(100).optional(),
-        delta: z.number().optional().describe('进度增量，如 +10 / -5'),
+        delta: z.number().optional().describe('如 +10 / -5'),
         actor: z.string().optional(),
         refs: z
           .record(z.string())
           .optional()
-          .describe(
-            '关联引用。已提交的改动必须带 commit（多个用 commits 空格或逗号分隔），' +
-              '看板会据此把对应的 git 记录并入本条，避免同一件事出现两行',
-          ),
+          .describe('已提交的改动必须带 commit（多个用 commits），看板据此并入 git 记录避免重复'),
       },
       annotations: WRITE,
     },
     handler((args: Parameters<typeof projects.reportProgress>[1] & { id: string }) =>
-      projects.reportProgress(args.id, { ...args, source: 'agent' }),
+      receipt(projects.reportProgress(args.id, { ...args, source: 'agent' }), {
+        event_type: args.type ?? 'progress',
+      }),
     ),
   );
 
@@ -391,16 +394,14 @@ export function createPmServer(app: App): McpServer {
     {
       title: '记录一次发布',
       description:
-        '记录一个版本的发布（version 必填）。独立开发场景下发布是最值得留档的事件：' +
-        '之后随时能回答「这个工具最后一次发布是什么版本、什么时候、包含什么」。' +
-        '若仓库已关联，符合版本号规范的 git tag 会被 pm_sync_git 自动采集，不必手工记录。',
+        '记录一个版本的发布，version 必填。仓库已关联时，规范的 git tag 会被 pm_sync_git 自动采集，不必手工记录。',
       inputSchema: {
-        id: z.string().describe('项目 id'),
-        version: z.string().describe('版本号，如 v0.3.2'),
+        id: z.string(),
+        version: z.string().describe('如 v0.3.2'),
         note: z.string().optional().describe('这次发布包含什么'),
-        url: z.string().optional().describe('发布页 / Release 链接'),
-        tag: z.string().optional().describe('对应的 git tag'),
-        date: z.string().optional().describe('ISO 时间；补录历史发布时使用'),
+        url: z.string().optional().describe('发布页链接'),
+        tag: z.string().optional(),
+        date: z.string().optional().describe('补录历史发布时使用'),
         actor: z.string().optional(),
       },
       annotations: WRITE,
@@ -415,7 +416,8 @@ export function createPmServer(app: App): McpServer {
       actor?: string;
     }) => {
       const { id, ...rest } = args;
-      return projects.reportRelease(id, { ...rest, source: 'agent' });
+      const p = projects.reportRelease(id, { ...rest, source: 'agent' });
+      return receipt(p, { version: args.version, last_release: p.last_release, release_count: p.release_count });
     }),
   );
 
@@ -423,9 +425,9 @@ export function createPmServer(app: App): McpServer {
     'pm_upsert_goal',
     {
       title: '维护项目目标',
-      description: '新增或更新项目目标（含量化指标与截止日期）。传入 goal_id 即更新，否则新增。',
+      description: '新增或更新项目目标。传 goal_id 即更新，否则新增。',
       inputSchema: {
-        id: z.string().describe('项目 id'),
+        id: z.string(),
         goal_id: z.string().optional(),
         title: z.string().optional().describe('新增时必填'),
         metric: z.string().optional(),
@@ -439,10 +441,16 @@ export function createPmServer(app: App): McpServer {
     handler((args: { id: string; goal_id?: string; title?: string }) => {
       if (!args.goal_id && !args.title) throw new Error('新增目标必须提供 title');
       const { id, goal_id, ...rest } = args;
-      return projects.upsertGoal(id, {
+      const p = projects.upsertGoal(id, {
         ...(rest as Parameters<typeof projects.upsertGoal>[1]),
         id: goal_id,
         title: (rest.title ?? '') as string,
+      });
+      const goal = p.goals.find((g) => g.id === goal_id || g.title === rest.title);
+      return receipt(p, {
+        goal_id: goal?.id ?? null,
+        goal_status: goal?.status ?? null,
+        goals_count: p.goals.length,
       });
     }),
   );
@@ -451,13 +459,12 @@ export function createPmServer(app: App): McpServer {
     'pm_upsert_roadmap_item',
     {
       title: '维护路线图',
-      description:
-        '新增或更新未来规划条目（里程碑）。每日计划会基于最近的未完成里程碑推导 Today 任务，因此请保持路线图有效。',
+      description: '新增或更新未来规划条目。每日计划基于未完成条目推导，请保持它有效。',
       inputSchema: {
-        id: z.string().describe('项目 id'),
+        id: z.string(),
         item_id: z.string().optional(),
         title: z.string().optional().describe('新增时必填'),
-        due: z.string().optional().describe('YYYY-MM-DD'),
+        due: z.string().optional(),
         status: z.enum(['planned', 'in_progress', 'done', 'dropped']).optional(),
         description: z.string().optional(),
       },
@@ -466,10 +473,16 @@ export function createPmServer(app: App): McpServer {
     handler((args: { id: string; item_id?: string; title?: string }) => {
       if (!args.item_id && !args.title) throw new Error('新增路线图条目必须提供 title');
       const { id, item_id, ...rest } = args;
-      return projects.upsertRoadmapItem(id, {
+      const p = projects.upsertRoadmapItem(id, {
         ...(rest as Parameters<typeof projects.upsertRoadmapItem>[1]),
         id: item_id,
         title: (rest.title ?? '') as string,
+      });
+      const item = p.roadmap.find((r) => r.id === item_id || r.title === rest.title);
+      return receipt(p, {
+        item_id: item?.id ?? null,
+        item_status: item?.status ?? null,
+        roadmap_count: p.roadmap.length,
       });
     }),
   );
@@ -478,11 +491,11 @@ export function createPmServer(app: App): McpServer {
     'pm_link_repo',
     {
       title: '关联/解绑仓库',
-      description: '把本地 git 仓库关联到项目，之后 pm_sync_git 会自动采集其 commit 到时间线。',
+      description: '关联本地 git 仓库，之后 pm_sync_git 会自动采集其 commit 到时间线。',
       inputSchema: {
-        id: z.string().describe('项目 id'),
+        id: z.string(),
         path: z.string().optional().describe('本地仓库绝对路径'),
-        url: z.string().optional().describe('远程地址（仅记录，暂不采集）'),
+        url: z.string().optional().describe('远程地址（仅记录）'),
         branch: z.string().optional(),
         unlink: z.boolean().optional().default(false),
       },
@@ -491,9 +504,10 @@ export function createPmServer(app: App): McpServer {
     handler((args: { id: string; path?: string; url?: string; branch?: string; unlink: boolean }) => {
       const key = args.path ?? args.url;
       if (!key) throw new Error('需要 path 或 url');
-      return args.unlink
+      const p = args.unlink
         ? projects.unlinkRepo(args.id, key)
         : projects.linkRepo(args.id, { path: args.path, url: args.url, branch: args.branch });
+      return receipt(p, { linked: !args.unlink, repo_count: p.repos.length });
     }),
   );
 
@@ -504,13 +518,12 @@ export function createPmServer(app: App): McpServer {
     {
       title: '生成当日计划',
       description:
-        '读取全部项目的进展与规划，按「阻塞 > 落后时间轴 > 临近里程碑 > 临近目标 > 滞涨 > 常规推进」打分，' +
-        '产出可直接执行的当日任务清单（含每条的理由）。默认保留已有的已完成任务与人工添加的任务。',
+        '按「阻塞 > 落后时间轴 > 临近里程碑 > 临近目标 > 滞涨 > 常规推进」打分，产出当日任务清单（含理由）。保留已有的已完成与人工任务。',
       inputSchema: {
-        date: z.string().optional().describe('YYYY-MM-DD，默认今天'),
+        date: z.string().optional().describe('默认今天'),
         max_tasks: z.number().int().positive().optional().describe('默认取配置值'),
         replace: z.boolean().optional().default(false).describe('true 则丢弃已有未完成任务'),
-        focus: z.string().optional().describe('今日额外关注点，会写入计划摘要'),
+        focus: z.string().optional().describe('今日额外关注点'),
       },
       annotations: WRITE,
     },

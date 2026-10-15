@@ -2,6 +2,8 @@
 
 所有工具名以 `pm_` 开头。返回值为 JSON 文本；出错时以 `isError` 标记并返回可读错误信息（如 `项目不存在: xxx`），不会抛协议异常。
 
+写入类工具只返回**精简回执**（`id` / `status` / `progress` / `updated_at`，另加本次改动的关键字段，如 `item_id` / `goal_id` / `release_count` / `changed`），**不回显整个项目对象**——这是为了控制上下文开销。需要完整字段时显式调用 `pm_get_project`。
+
 ## 查询类（只读）
 
 ### `pm_list_projects`
@@ -28,7 +30,7 @@
 读项目详情。
 
 - `id`（必填）
-- `timeline_limit`（默认 30）：附带最近事件条数
+- `timeline_limit`（默认 15，回看更早历史时显式传大）：附带最近事件条数
 
 返回完整字段 + `timeline` 数组（`ts / source / type / content / delta / actor / refs`）。
 
@@ -46,7 +48,7 @@
 返回 Markdown 简报：总览 + 滞涨 + 今日计划。适合直接注入上下文或展示给用户。
 
 ### `pm_get_feed`
-- `limit`（默认 60）、`project_id`（可选）、`types`（可选，如 `["release","note"]`）
+- `limit`（默认 30）、`project_id`（可选）、`types`（可选，如 `["release","note"]`）
 
 跨项目动态流：按时间倒序读取所有项目的记录。用于回答「最近都在忙什么」，也适合在总结某段时间的工作前先拉一遍。
 
