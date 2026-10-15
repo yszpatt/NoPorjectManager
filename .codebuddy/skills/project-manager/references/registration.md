@@ -126,6 +126,8 @@ npm run ui           # http://localhost:8930
 
 服务默认只监听 `127.0.0.1`。需要从其它设备访问时用 `pm serve --lan`（可选 `--password <口令>` 开启 HTTP Basic 认证，浏览器首次打开会弹原生登录框；MCP 端点共用同一套凭据）。**若为局域网模式且未设口令，看板数据对同网络所有人可写可删**，告知用户前请确认这是他的意图。
 
+口令也可以让用户自己改：**看板顶栏 `⋯` → 设置 → 访问鉴权**。面板凭据落在 `.projectmanager/auth.json`（只存 scrypt 派生值），**优先于 `PM_PASSWORD`**，保存后立即生效。用户改了口令导致 HTTP 注册的 MCP 拿不到数据时，先确认是不是这里改过——注册信息里的 `Authorization` 要跟着换。忘了口令用 `pm auth reset` 清除，回落到环境变量。
+
 ## 四、CLI（无 MCP 时的兜底）
 
 ```bash

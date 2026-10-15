@@ -5,8 +5,13 @@ dist/
 # 本地临时目录（验证用的临时仓库等）
 .tmp-*/
 
-# compose 的本地变量文件，可能含访问令牌
+# compose 的本地变量文件，可能含访问口令
 .env
+
+# 面板里设置的访问凭据。虽然只存 scrypt 派生值、不含明文，
+# 但既然整个 .projectmanager/ 已经忽略，这里再单独兜一条：
+# 万一你为了备份数据改了上面的规则，凭据也不该跟着进仓库。
+.projectmanager/auth.json
 
 # 界面验证的截屏与临时数据
 .artifacts/

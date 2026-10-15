@@ -92,6 +92,7 @@ node bin/pm.mjs plan generate --max 5
 node bin/pm.mjs task done <taskId> --delta 5
 node bin/pm.mjs git sync          # 采集 commit 与版本 tag
 node bin/pm.mjs reindex           # 手工编辑 Markdown 后重建索引
+node bin/pm.mjs auth show         # 查看访问凭据从哪来（面板 / 环境变量 / 未启用）
 node bin/pm.mjs help
 ```
 
@@ -127,6 +128,7 @@ npm run mcp:stdio      # stdio：本地 Agent / harness 直连（本地场景推
 ├── events/<id>.jsonl      # 事件流：追加型，一行一个 JSON
 ├── plans/<date>.md        # 每日计划
 ├── config.json            # 阈值、日程策略、自定义字段、适配器开关
+├── auth.json              # 面板里设置的访问凭据（只存 scrypt 派生值；已单独 gitignore）
 └── index.sqlite           # 派生索引（已 gitignore，可重建）
 
 src/
@@ -316,6 +318,8 @@ node bin/pm.mjs serve --lan --password <口令> [--user pm]   # 推荐：同时�
 
 **认证用的是 HTTP Basic**：浏览器首次打开会弹出原生登录框，输入一次后由浏览器记住凭据并在后续请求上自动携带——不用在 URL 上拼参数，也不会反复弹窗。`curl` 等命令行工具用 `-u <用户名>:<口令>` 即可。MCP 端点（`/mcp`）走的是同一套凭据，不额外开口子。
 
+凭据不必写在启动参数里：打开看板 → 顶栏 `⋯` → **设置** → 访问鉴权，就能直接改用户名与口令，保存后立即生效（浏览器会要求重新登录一次）。**面板里设置的凭据优先于 `--password` / `PM_PASSWORD`**；点「关闭鉴权」或执行 `pm auth reset` 会清除面板凭据，回落到环境变量（没有环境变量则不再校验）。口令只以 scrypt 派生值落盘到 `.projectmanager/auth.json`，不存明文；忘了口令就用 `pm auth reset` 删掉重设。
+
 启动后终端会直接给出地址与账号：
 
 ```
@@ -370,6 +374,8 @@ PM_USER=pm
 ```
 
 从旧版本升级无需改 `.env`：原来的 `PM_TOKEN` 会被当作口令沿用，数据卷里旧的 `.token` 也会自动迁移成 `.password`。
+
+也可以完全不碰 `.env`，直接在看板里改：顶栏 `⋯` → **设置** → 访问鉴权。面板凭据落在数据卷的 `/data/auth.json`（只存 scrypt 派生值），**优先于 `PM_PASSWORD`**，改完立即生效、不用重启容器。忘了口令就在宿主机执行 `docker exec no-project-manager node bin/pm.mjs auth reset`。
 
 确实不需要认证时设 `PM_ALLOW_ANONYMOUS=1`，并建议同时把端口收回回环：
 

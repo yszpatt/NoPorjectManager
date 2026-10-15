@@ -4,7 +4,7 @@
  *
  * 用法： npm run smoke:api
  */
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -63,7 +63,7 @@ async function waitForHealth(timeoutMs = 20000): Promise<boolean> {
 async function main(): Promise<void> {
   const child = spawn(
     process.execPath,
-    ['--disable-warning=ExperimentalWarning', tsx, path.join(root, 'src', 'cli', 'index.ts'), 'ui', '--port', String(port)],
+    ['--disable-warning=ExperimentalWarning', tsx, path.join(root, 'src', 'cli', 'index.ts'), 'serve', '--port', String(port)],
     {
       cwd: root,
       env: {
@@ -213,6 +213,84 @@ async function main(): Promise<void> {
 
     const notFound = await req('GET', '/api/projects/__nope__');
     check('404 语义', notFound.status === 404, `${notFound.status}`);
+
+    // ---------------------------------------------------------------- 访问鉴权
+    // 这一段会真的把服务切成需要认证，所以放在最后，前面的断言都还没被影响
+
+    const auth0 = await req<{ enabled: boolean; source: string; min_password_length: number }>(
+      'GET',
+      '/api/auth',
+    );
+    check(
+      'GET /api/auth（初始未启用）',
+      auth0.status === 200 && auth0.data.enabled === false && auth0.data.source === 'none',
+      `source=${auth0.data.source}`,
+    );
+
+    const tooShort = await req('PUT', '/api/auth', { user: 'tester', password: '123' });
+    check('PUT /api/auth 口令太短 → 400', tooShort.status === 400, `${tooShort.status}`);
+
+    const noUser = await req('PUT', '/api/auth', { user: '  ', password: 'smoke-pass-123' });
+    check('PUT /api/auth 用户名为空 → 400', noUser.status === 400, `${noUser.status}`);
+
+    const applied = await req<{ enabled: boolean; source: string; user: string }>(
+      'PUT',
+      '/api/auth',
+      { user: 'tester', password: 'smoke-pass-123' },
+    );
+    check(
+      'PUT /api/auth 启用（source=file）',
+      applied.status === 200 && applied.data.enabled === true && applied.data.source === 'file',
+      `source=${applied.data.source} user=${applied.data.user}`,
+    );
+
+    const auth = (user: string, password: string): Record<string, string> => ({
+      authorization: `Basic ${Buffer.from(`${user}:${password}`).toString('base64')}`,
+    });
+
+    const afterEnable = await fetch(`${base}/api/summary`);
+    check('启用后无凭据 → 401', afterEnable.status === 401, `${afterEnable.status}`);
+    check(
+      '401 带 WWW-Authenticate',
+      /^Basic\s+realm=/i.test(afterEnable.headers.get('www-authenticate') ?? ''),
+      afterEnable.headers.get('www-authenticate') ?? '(缺失)',
+    );
+
+    const wrongPass = await fetch(`${base}/api/summary`, { headers: auth('tester', 'nope') });
+    check('启用后口令错 → 401', wrongPass.status === 401, `${wrongPass.status}`);
+
+    const withCreds = await fetch(`${base}/api/summary`, {
+      headers: auth('tester', 'smoke-pass-123'),
+    });
+    check('启用后凭据正确 → 200', withCreds.status === 200, `${withCreds.status}`);
+
+    const mcpUnauthorized = await fetch(`${base}/mcp`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
+    });
+    check('启用后 MCP 无凭据 → 401', mcpUnauthorized.status === 401, `${mcpUnauthorized.status}`);
+
+    // CLI 是在另一个进程里改的 auth.json：运行中的服务应当在几秒内跟上
+    const reset = spawnSync(
+      process.execPath,
+      [
+        '--disable-warning=ExperimentalWarning',
+        tsx,
+        path.join(root, 'src', 'cli', 'index.ts'),
+        'auth',
+        'reset',
+      ],
+      { cwd: root, env: { ...process.env, PM_DATA_DIR: dataDir }, encoding: 'utf8' },
+    );
+    check('pm auth reset 执行成功', reset.status === 0, reset.stdout?.trim().split('\n')[0] ?? '');
+
+    await sleep(3500);
+    const afterReset = await fetch(`${base}/api/summary`);
+    check('reset 后服务自动跟进（不再要求凭据）', afterReset.status === 200, `${afterReset.status}`);
+
+    const authAfter = await req<{ enabled: boolean; source: string }>('GET', '/api/auth');
+    check('reset 后来源回到 none', authAfter.data.source === 'none', `source=${authAfter.data.source}`);
   } finally {
     child.kill();
   }

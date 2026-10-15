@@ -12,21 +12,90 @@ import { analyzeRisks } from '../core/risk.ts';
 import type { CreateProjectInput } from '../core/project-service.ts';
 import type { ProjectFilter, ProjectStatus, SourceKind, UpdateType } from '../core/types.ts';
 import { mergeConfig } from '../store/config.ts';
+import {
+  authFilePath,
+  clearAuth,
+  loadAuth,
+  MIN_PASSWORD_LENGTH,
+  saveAuth,
+  verifyAuth,
+  type AuthRecord,
+} from '../store/auth.ts';
 
 const DEFAULT_PORT = 8930;
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const distDir = path.join(repoRoot, 'web', 'dist');
 
 /**
- * HTTP Basic 凭据。password 为 null 表示不校验 —— 只应在「仅本机回环」的绑定下使用。
- * 一旦开放到局域网，强烈建议同时设置口令。
+ * 当前生效的凭据来源：
+ * - `file`：在看板面板里设置的（`.projectmanager/auth.json`，只存 scrypt 派生值）
+ * - `env` ：来自 PM_USER / PM_PASSWORD，明文只活在进程内存里
+ * - `none`：不校验 —— 只应在「仅本机回环」的绑定下使用
+ *
+ * 面板优先于环境变量：面板是用户当下的显式意图，环境变量是部署时的默认值。
+ * 清除面板凭据后会回落到环境变量（用 `pm auth reset` 或面板上的按钮）。
  *
  * 用 Basic 而不是自定义令牌，是因为浏览器对 Basic 的原生弹窗只弹一次、
  * 之后自动携带凭据：前端不需要任何令牌存取逻辑，也就不存在「并发请求各弹一次」
  * 这种毛病；curl / Agent 侧用 `-u user:pass` 也直接可用。
  */
-let authUser = 'pm';
-let authPassword: string | null = null;
+type AuthSource = 'file' | 'env' | 'none';
+
+interface AuthState {
+  source: AuthSource;
+  /** 当前生效的用户名（`none` 时只是展示用的默认值） */
+  user: string;
+}
+
+let authState: AuthState = { source: 'none', user: 'pm' };
+/** 环境变量里的凭据（明文，仅内存） */
+let envUser = 'pm';
+let envPassword: string | null = null;
+/** 面板凭据（派生值） */
+let fileAuth: AuthRecord | null = null;
+
+/**
+ * 已验证凭据的缓存：key = sha256(user\0password)，value = 写入时的凭据代数。
+ * scrypt 一次要几十毫秒，不能每个请求都跑；凭据一改代数就 +1，旧条目自动失效。
+ *
+ * 只缓存**成功**的凭据，所以错误的尝试不会把内存撑大。
+ */
+let authGeneration = 0;
+const verifiedCredentials = new Map<string, number>();
+
+/** 凭据被外部改动（`pm auth set/reset`、手工删文件）后的跟进间隔 */
+const AUTH_RELOAD_INTERVAL_MS = 3000;
+let lastAuthReloadAt = 0;
+
+/**
+ * 依据磁盘上的 auth.json 与环境变量重算当前生效的凭据。
+ *
+ * 只有**实际变了**才换代号、清缓存 —— 否则每 3 秒一次的空转重读会把
+ * scrypt 校验缓存冲掉，白白让每个请求多花几十毫秒。
+ */
+function reloadAuth(): void {
+  lastAuthReloadAt = Date.now();
+  const next = loadAuth(app.store.paths);
+  const nextSource: AuthSource = next ? 'file' : envPassword ? 'env' : 'none';
+  const nextUser = next ? next.user : envUser;
+  const changed =
+    authState.source !== nextSource ||
+    authState.user !== nextUser ||
+    (fileAuth?.hash ?? '') !== (next?.hash ?? '');
+
+  fileAuth = next;
+  authState = { source: nextSource, user: nextUser };
+  if (changed) {
+    authGeneration += 1;
+    verifiedCredentials.clear();
+  }
+}
+
+/** 每个请求最多每 3 秒看一眼磁盘，跟上外部进程的修改 */
+function maybeReloadAuth(): void {
+  if (Date.now() - lastAuthReloadAt < AUTH_RELOAD_INTERVAL_MS) return;
+  reloadAuth();
+}
 
 /** 是否在同一端口上挂载 MCP(Streamable HTTP) 端点；默认开启 */
 let mcpEnabled = true;
@@ -344,6 +413,49 @@ route('PATCH', '/api/config', ({ body }) => {
 
 route('POST', '/api/reindex', () => ({ rebuilt: app.store.rebuildIndex() }));
 
+// ---------------------------------------------------------------- 访问鉴权
+
+/** 启动日志里给「凭据从哪来」一个中文说法 */
+function authSourceLabel(): string {
+  return authState.source === 'file' ? '面板管理' : '环境变量';
+}
+
+function authStatus(): Record<string, unknown> {
+  return {
+    enabled: authState.source !== 'none',
+    /** file = 面板管理；env = 由 PM_USER/PM_PASSWORD 控制；none = 未启用 */
+    source: authState.source,
+    user: authState.user,
+    /** 环境变量里也配了口令：清除面板凭据后会回落到它 */
+    env_configured: envPassword !== null,
+    /** 面板凭据的落盘位置，改错了可以删掉它重来 */
+    file: authFilePath(app.store.paths),
+    min_password_length: MIN_PASSWORD_LENGTH,
+  };
+}
+
+route('GET', '/api/auth', () => authStatus());
+
+route('PUT', '/api/auth', ({ body }) => {
+  const o = (body ?? {}) as Record<string, unknown>;
+  const user = String(o.user ?? '').trim();
+  const password = String(o.password ?? '');
+  if (!user) throw httpError(400, '用户名不能为空');
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    throw httpError(400, `口令至少 ${MIN_PASSWORD_LENGTH} 位`);
+  }
+  saveAuth(app.store.paths, user, password);
+  // 立刻生效：旧凭据随即失效，浏览器下一次请求会重新弹登录框
+  reloadAuth();
+  return authStatus();
+});
+
+route('DELETE', '/api/auth', () => {
+  clearAuth(app.store.paths);
+  reloadAuth();
+  return authStatus();
+});
+
 // ---------------------------------------------------------------- HTTP 基础设施
 
 const SOURCE_KINDS: ReadonlySet<string> = new Set(['agent', 'user', 'git', 'integration']);
@@ -456,24 +568,49 @@ function safeEqual(a: string, b: string): boolean {
   return timingSafeEqual(ha, hb);
 }
 
-/** 校验 `Authorization: Basic base64(user:pass)` */
-function isAuthorized(req: IncomingMessage): boolean {
-  if (!authPassword) return true;
+/** 解析 `Authorization: Basic base64(user:pass)` */
+function parseBasic(req: IncomingMessage): { user: string; password: string } | null {
   const raw = req.headers.authorization;
   const header = Array.isArray(raw) ? raw[0] : raw;
-  if (!header || !/^basic\s/i.test(header)) return false;
+  if (!header || !/^basic\s/i.test(header)) return null;
   let decoded: string;
   try {
     decoded = Buffer.from(header.replace(/^basic\s+/i, '').trim(), 'base64').toString('utf8');
   } catch {
-    return false;
+    return null;
   }
   const sep = decoded.indexOf(':');
-  if (sep < 0) return false;
-  // 两个比较都算完再返回，避免短路暴露「用户名是否正确」
-  const userOk = safeEqual(decoded.slice(0, sep), authUser);
-  const passOk = safeEqual(decoded.slice(sep + 1), authPassword);
-  return userOk && passOk;
+  if (sep < 0) return null;
+  return { user: decoded.slice(0, sep), password: decoded.slice(sep + 1) };
+}
+
+/** 拿当前生效的凭据比对一次（env 走明文比对，file 走 scrypt） */
+function credentialsMatch(user: string, password: string): boolean {
+  if (authState.source === 'env') {
+    // 两个都比较完再返回，避免短路暴露「用户名是否正确」
+    return safeEqual(user, authState.user) && safeEqual(password, envPassword ?? '');
+  }
+  return fileAuth !== null && verifyAuth(fileAuth, user, password);
+}
+
+/** 校验请求凭据；结果按凭据摘要缓存，避免每个请求都跑 scrypt */
+function isAuthorized(req: IncomingMessage): boolean {
+  maybeReloadAuth();
+  if (authState.source === 'none') return true;
+
+  const parsed = parseBasic(req);
+  if (!parsed) return false;
+
+  const cacheKey = createHash('sha256')
+    .update(`${parsed.user}\u0000${parsed.password}`, 'utf8')
+    .digest('hex');
+  if (verifiedCredentials.get(cacheKey) === authGeneration) return true;
+
+  if (credentialsMatch(parsed.user, parsed.password)) {
+    verifiedCredentials.set(cacheKey, authGeneration);
+    return true;
+  }
+  return false;
 }
 
 async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -572,10 +709,12 @@ export function startApiServer(options: ApiServerOptions | number = {}): http.Se
   const opts = typeof options === 'number' ? { port: options } : options;
   const port = opts.port ?? Number(process.env.PM_UI_PORT ?? DEFAULT_PORT);
   const host = opts.host ?? process.env.PM_HOST ?? '127.0.0.1';
-  authUser = (opts.user ?? process.env.PM_USER ?? 'pm').trim() || 'pm';
+  envUser = (opts.user ?? process.env.PM_USER ?? 'pm').trim() || 'pm';
   // PM_PASSWORD 是当前的名字；PM_TOKEN 保留为别名，旧部署的 .env 不至于失效
-  authPassword =
+  envPassword =
     (opts.password ?? process.env.PM_PASSWORD ?? process.env.PM_TOKEN ?? '').trim() || null;
+  // 面板里设的凭据优先；没有才回落到环境变量
+  reloadAuth();
   mcpEnabled = opts.mcp ?? process.env.PM_MCP !== '0';
 
   const server = http.createServer((req, res) => {
@@ -595,14 +734,16 @@ export function startApiServer(options: ApiServerOptions | number = {}): http.Se
         lines.push('  局域网: 未检测到可用的局域网 IPv4 地址');
       }
       lines.push('  提示: 首次访问可能被 Windows 防火墙拦截，需要放行该端口');
-      if (authPassword) {
-        lines.push(`  认证:   Basic，用户名 ${authUser}；浏览器首次打开会弹出登录框`);
+      if (authState.source !== 'none') {
+        lines.push(
+          `  认证:   Basic，用户名 ${authState.user}（${authSourceLabel()}）；浏览器首次打开会弹出登录框`,
+        );
       } else {
         lines.push('  警告: 未设置访问口令，同网络内的任何人都可读写、归档甚至删除看板数据');
-        lines.push('        建议改为: pm serve --lan --password <一段随机字符串>');
+        lines.push('        可在看板「设置」里设置，或启动时加 --password <口令>');
       }
-    } else if (authPassword) {
-      lines.push(`  已启用 Basic 认证（用户名 ${authUser}）`);
+    } else if (authState.source !== 'none') {
+      lines.push(`  已启用 Basic 认证（用户名 ${authState.user}，${authSourceLabel()}）`);
     }
 
     if (mcpEnabled) {

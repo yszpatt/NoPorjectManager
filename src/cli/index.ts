@@ -99,6 +99,11 @@ const HELP = `项目管理看板 CLI
   pm config [--json]
   pm config set '<json补丁>'
 
+访问鉴权
+  pm auth show                             # 查看凭据来源（面板 / 环境变量 / 未启用）
+  pm auth set --password <口令> [--user pm]  # 写入面板凭据；口令改错了用它救回来
+  pm auth reset                            # 清除面板凭据，回落到环境变量
+
 服务
   pm serve [--port 8930]                       # 统一服务：看板 UI + REST API + MCP(HTTP) 同端口
   pm serve --lan --password <口令> [--user pm]  # 开放局域网访问；MCP 共用同一套凭据
@@ -121,6 +126,53 @@ async function main(): Promise<void> {
   if (cmd === 'mcp') {
     if (sub === 'http') await import('../mcp/http.ts');
     else await import('../mcp/stdio.ts');
+    return;
+  }
+
+  // 凭据存在数据目录里，不需要建整个 app（省掉一次 SQLite 装配）
+  if (cmd === 'auth') {
+    const { resolvePaths } = await import('../store/paths.ts');
+    const { authFilePath, clearAuth, loadAuth, saveAuth, MIN_PASSWORD_LENGTH } = await import(
+      '../store/auth.ts'
+    );
+    const paths = resolvePaths();
+
+    if (sub === 'reset') {
+      clearAuth(paths);
+      console.log('已清除面板凭据');
+      console.log(
+        process.env.PM_PASSWORD || process.env.PM_TOKEN
+          ? '  运行中的服务几秒内会回落到环境变量里的口令；重启同样生效'
+          : '  运行中的服务几秒内会变成「不再校验」——局域网模式下请尽快重新设置',
+      );
+      return;
+    }
+
+    if (sub === 'set') {
+      const user = str(flags, 'user') ?? 'pm';
+      const password = str(flags, 'password') ?? '';
+      if (password.length < MIN_PASSWORD_LENGTH) {
+        console.error(`口令至少 ${MIN_PASSWORD_LENGTH} 位：pm auth set --password <口令>`);
+        process.exit(1);
+      }
+      saveAuth(paths, user, password);
+      console.log(`已写入面板凭据：用户名 ${user}`);
+      console.log(`  文件: ${authFilePath(paths)}`);
+      console.log('  运行中的服务几秒内自动生效（也可以直接在看板「设置」里改）');
+      return;
+    }
+
+    // 默认 show
+    const record = loadAuth(paths);
+    if (record) {
+      console.log(`来源: 面板管理（用户名 ${record.user}）`);
+      console.log(`  文件: ${authFilePath(paths)}`);
+      console.log(`  更新: ${record.updated_at || '未知'}`);
+    } else if (process.env.PM_PASSWORD || process.env.PM_TOKEN) {
+      console.log(`来源: 环境变量（用户名 ${process.env.PM_USER ?? 'pm'}）`);
+    } else {
+      console.log('来源: 未启用 —— 仅应在只绑本机回环时才这样');
+    }
     return;
   }
 

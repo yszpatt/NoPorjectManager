@@ -6,6 +6,7 @@ import { TableView } from './views/TableView';
 import { Today } from './views/Today';
 import { ProjectDrawer } from './components/ProjectDrawer';
 import { NewProjectModal } from './components/NewProjectModal';
+import { SettingsModal } from './components/SettingsModal';
 import { Btn, Input, Menu, Skeleton } from './components/bits';
 import type { Card, Plan, RiskItem, Summary } from './types';
 
@@ -48,7 +49,23 @@ export default function App() {
   const [notice, setNotice] = useState<Notice | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [syncing, setSyncing] = useState(false);
+
+  /** 看板名称来自 config，可以在「设置」里改 */
+  const [projectName, setProjectName] = useState('项目看板');
+  const loadProjectName = useCallback(() => {
+    void api
+      .config()
+      .then((r) => setProjectName(r.config.projectName?.trim() || '项目看板'))
+      .catch(() => {
+        /* 读不到就用默认名字，不打扰用户 */
+      });
+  }, []);
+
+  useEffect(() => {
+    loadProjectName();
+  }, [loadProjectName]);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark');
@@ -125,7 +142,7 @@ export default function App() {
             <span className="grid size-6 place-items-center rounded-md bg-accent text-[12px] font-bold text-white">
               P
             </span>
-            <h1 className="text-[14px] font-semibold tracking-tight text-ink">项目看板</h1>
+            <h1 className="text-[14px] font-semibold tracking-tight text-ink">{projectName}</h1>
           </div>
 
           <nav className="flex items-center gap-0.5 rounded-lg bg-surface-2 p-0.5">
@@ -186,6 +203,7 @@ export default function App() {
                   label: showArchived ? '隐藏已归档' : '显示已归档',
                   onClick: () => setShowArchived(!showArchived),
                 },
+                { label: '设置', onClick: () => setSettingsOpen(true) },
               ]}
             />
             <Btn size="sm" variant="primary" onClick={() => setCreating(true)}>
@@ -248,6 +266,13 @@ export default function App() {
           notify({ kind: 'ok', text: `项目 ${id} 已创建` });
         }}
         notify={notify}
+      />
+
+      <SettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        notify={notify}
+        onConfigSaved={loadProjectName}
       />
     </div>
   );

@@ -61,6 +61,18 @@ export interface ProjectFilters {
   all?: boolean;
 }
 
+/** 访问凭据的当前来源：file = 面板管理，env = 部署时的环境变量，none = 未启用 */
+export interface AuthStatus {
+  enabled: boolean;
+  source: 'file' | 'env' | 'none';
+  user: string;
+  /** 环境变量里也配了口令：清除面板凭据后会回落到它 */
+  env_configured: boolean;
+  /** 面板凭据的落盘位置 */
+  file: string;
+  min_password_length: number;
+}
+
 export const api = {
   summary: () => request<Summary>('/summary'),
 
@@ -160,7 +172,25 @@ export const api = {
       method: 'DELETE',
     }),
 
-  config: () => request<{ config: { progress?: { mode?: string } } }>('/config'),
+  config: () =>
+    request<{
+      config: {
+        projectName?: string;
+        progress?: { mode?: string };
+        planning?: { maxTasksPerDay?: number };
+      };
+    }>('/config'),
+
+  /** 访问凭据：读当前来源、设置新凭据、清除面板凭据（回落到环境变量） */
+  authStatus: () => request<AuthStatus>('/auth'),
+
+  setAuth: (user: string, password: string) =>
+    request<AuthStatus>('/auth', {
+      method: 'PUT',
+      body: JSON.stringify({ user, password }),
+    }),
+
+  clearAuth: () => request<AuthStatus>('/auth', { method: 'DELETE' }),
 
   updateConfig: (patch: Record<string, unknown>) =>
     request<unknown>('/config', { method: 'PATCH', body: JSON.stringify(patch) }),
