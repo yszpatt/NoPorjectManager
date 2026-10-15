@@ -1,9 +1,10 @@
 # 用法：
 #   docker compose up -d --build
-#   docker compose logs -f board          # 访问令牌会打印在这里
+#   docker compose logs -f board          # 访问口令会打印在这里
 #   docker compose down                   # 数据在具名卷里，不会丢
 #
-# 想固定自己的令牌：在项目根目录建 .env，写 PM_TOKEN=<一段随机字符串>
+# 认证是 HTTP Basic：用户名默认 pm（PM_USER 可改），口令取 PM_PASSWORD。
+# 想固定成自己的口令：在项目根目录建 .env，写 PM_PASSWORD=<一段随机字符串>
 # （.env 已在 .gitignore 里，不会被提交）
 
 services:
@@ -12,12 +13,14 @@ services:
     image: no-project-manager:local
     container_name: no-project-manager
     ports:
-      # 只暴露看板端口。想限制成「只有本机能访问」就写成 "127.0.0.1:8930:8930"
+      # 只暴露这一个端口：看板 UI、REST API 与 MCP(HTTP) 端点（/mcp）都在它上面。
+      # 想限制成「只有本机能访问」就写成 "127.0.0.1:8930:8930"
       - "8930:8930"
     environment:
-      # 不设 PM_TOKEN 时容器会自动生成一个并持久化到数据卷，日志里会打印出来。
-      # 要关闭令牌校验（仅当你确认端口不对局域网开放）就设 PM_ALLOW_ANONYMOUS=1
-      - PM_TOKEN=${PM_TOKEN:-}
+      # 不设 PM_PASSWORD 时容器会自动生成一个并持久化到数据卷，日志里会打印出来。
+      # 要关闭认证（仅当你确认端口不对局域网开放）就设 PM_ALLOW_ANONYMOUS=1
+      - PM_PASSWORD=${PM_PASSWORD:-}
+      - PM_USER=${PM_USER:-pm}
       - PM_ALLOW_ANONYMOUS=${PM_ALLOW_ANONYMOUS:-}
       # 时区决定「今天」是哪天：每日计划、动态流的日期分组都按它算
       - TZ=${TZ:-Asia/Shanghai}
@@ -28,22 +31,10 @@ services:
       # - ${HOME}/code:/repos:ro
     restart: unless-stopped
 
-  # ---------------------------------------------------------------------------
-  # MCP(HTTP) 服务：给其它机器上的 Agent 用。
-  #
-  # ⚠️ 它没有任何鉴权——端口一旦对外暴露，等于把看板数据的读写权限公开。
-  #    所以默认只绑宿主机回环，并且整段注释掉、按需启用。
-  # ---------------------------------------------------------------------------
-  # mcp:
-  #   build: .
-  #   image: no-project-manager:local
-  #   container_name: no-project-manager-mcp
-  #   command: ["node", "bin/pm.mjs", "mcp", "http"]
-  #   ports:
-  #     - "127.0.0.1:8931:8931"
-  #   volumes:
-  #     - pm-data:/data
-  #   restart: unless-stopped
+  # 不再需要单独的 mcp 服务：MCP(HTTP) 已经并进上面这个容器，
+  # 与看板同端口（/mcp）、同一套 Basic 凭据。
+  # 远端 Agent 这样接：url = http://<主机>:8930/mcp，并附带 Authorization: Basic 头。
+  # 若只想给 MCP 开一个端口、不给 UI，用 `pm mcp http` 单独跑（那是不带认证的独立模式）。
 
 volumes:
   pm-data:

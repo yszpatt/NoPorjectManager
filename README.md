@@ -64,7 +64,7 @@ npm run seed
 
 # 打开看板
 npm run ui:build                # 构建前端（首次或改过前端代码后）
-npm run ui                      # http://localhost:8930
+npm run serve                   # http://localhost:8930（MCP 端点同在 /mcp）
 ```
 
 只想用 CLI / MCP 的话，只需 `npm install` + `npm run seed`。
@@ -95,14 +95,29 @@ node bin/pm.mjs reindex           # 手工编辑 Markdown 后重建索引
 node bin/pm.mjs help
 ```
 
-### 启动 MCP 服务
+### 接入 Agent（MCP）
+
+看板 UI、REST API 与 MCP(HTTP) **在同一个服务、同一个端口上**，不用分别启动：
 
 ```bash
-npm run mcp:stdio      # stdio：本地 Agent / harness 直连
-npm run mcp:http       # HTTP(Streamable)：http://localhost:8931/mcp
+npm run serve          # 统一服务 → http://localhost:8930/ ，MCP 端点在 /mcp
+npm run mcp:stdio      # stdio：本地 Agent / harness 直连（本地场景推荐）
 ```
 
-注册到客户端时：stdio 用 `command: node` + `args: ["<项目路径>/bin/pm.mjs","mcp","stdio"]`；HTTP 用 `url: http://localhost:8931/mcp`。详见 `.codebuddy/skills/project-manager/references/registration.md`。
+**本地 Agent 用 stdio 最省事**：`command: node` + `args: ["<项目路径>/bin/pm.mjs","mcp","stdio"]`。
+
+**远端 Agent 用统一服务的 MCP 端点**：`url` 指向 `/mcp`，并带上与看板同一套的 Basic 凭据：
+
+```json
+{
+  "url": "http://192.168.9.198:8930/mcp",
+  "headers": { "Authorization": "Basic cG06PHlvdXItcGFzc3dvcmQ+" }
+}
+```
+
+`cG0…` 是 `pm:<口令>` 的 base64（`printf 'pm:口令' | base64`）。MCP 与看板共用同一套凭据，所以 MCP 不再是一个"谁都能读写"的裸端口。若端口已收回回环、不需要认证，去掉 `headers` 即可。
+
+详见 `.codebuddy/skills/project-manager/references/registration.md`。
 
 ## 目录结构
 
@@ -129,8 +144,8 @@ web/                       # 看板前端（React + Vite + Tailwind v4，图表�
 bin/pm.mjs                 # pm 可执行入口
 scripts/                   # 冒烟测试、容器健康检查
 Dockerfile                 # 多阶段构建（前端在镜像内构建）
-docker-compose.yml         # 数据卷 / 端口 / 令牌 / 时区
-docker-entrypoint.sh       # 无 PM_TOKEN 时自动生成并持久化
+docker-compose.yml         # 数据卷 / 端口 / 口令 / 时区
+docker-entrypoint.sh       # 无 PM_PASSWORD 时自动生成并持久化
 .codebuddy/
 ├── skills/project-manager/   # Agent Skill（SKILL.md + references）
 ├── hooks/                    # SessionStart / SessionEnd 脚本
@@ -275,7 +290,7 @@ roadmap:
 
 ## 看板界面
 
-`npm run ui` 后在浏览器打开 `http://localhost:8930`。四种视图共享同一份数据，任意改动都会实时落盘到 Markdown 事实源。
+`npm run serve` 后在浏览器打开 `http://localhost:8930`。四种视图共享同一份数据，任意改动都会实时落盘到 Markdown 事实源。
 
 | 视图 | 内容 |
 |---|---|
@@ -293,26 +308,29 @@ roadmap:
 默认**只监听本机回环**（`127.0.0.1`），局域网内的其他设备访问不到。需要从手机、平板或另一台电脑打开时：
 
 ```bash
-node bin/pm.mjs ui --lan                          # 绑定所有网卡，启动时会打印可用的局域网地址
-node bin/pm.mjs ui --lan --token <随机字符串>      # 推荐：同时开启访问令牌
+node bin/pm.mjs serve --lan                                # 绑定所有网卡，启动时会打印可用的局域网地址
+node bin/pm.mjs serve --lan --password <口令> [--user pm]   # 推荐：同时开启访问口令
 ```
 
-也可以用环境变量：`PM_HOST`（默认 `127.0.0.1`）、`PM_UI_PORT`（默认 `8930`）、`PM_TOKEN`。
+也可以用环境变量：`PM_HOST`（默认 `127.0.0.1`）、`PM_UI_PORT`（默认 `8930`）、`PM_USER`（默认 `pm`）、`PM_PASSWORD`、`PM_MCP=0`（关闭 MCP 端点）。
 
-启动后终端会直接给出可复制粘贴的地址：
+**认证用的是 HTTP Basic**：浏览器首次打开会弹出原生登录框，输入一次后由浏览器记住凭据并在后续请求上自动携带——不用在 URL 上拼参数，也不会反复弹窗。`curl` 等命令行工具用 `-u <用户名>:<口令>` 即可。MCP 端点（`/mcp`）走的是同一套凭据，不额外开口子。
+
+启动后终端会直接给出地址与账号：
 
 ```
-本机:   http://localhost:8930/?token=yqiw1u6dokh58sfx
-局域网: http://192.168.9.198:8930/?token=yqiw1u6dokh58sfx
+本机:   http://localhost:8930/
+局域网: http://192.168.9.198:8930/
+认证:   Basic，用户名 pm；浏览器首次打开会弹出登录框
 ```
 
-前端会从 URL 读取 `token` 并立即从地址栏抹掉，存进 `localStorage`，后续请求自动携带；令牌不对时会弹出输入框。若省略 `--token`，同一网络内的任何人都可读写、归档甚至删除看板数据——服务启动时会就此给出警告。
+若省略 `--password`，同一网络内的任何人都可读写、归档甚至删除看板数据——服务启动时会就此给出警告。
 
 **注意事项**
 
 - **Windows 防火墙**：首次被外部设备访问时系统会弹窗询问，需要放行；若当时点了拒绝，要手动在「高级安全 Windows 防火墙 → 入站规则」中为 node 放行该端口
 - 启动日志里可能同时列出虚拟网卡地址（WSL / Hyper-V / VPN 的 `172.x.x.x` 等），那些地址外部设备通常访问不到，用 `192.168.*` 那类真实局域网地址
-- 服务本身没有账号体系，只有一个共享令牌。**不要暴露到公网**，也不要在不可信的公共 Wi-Fi 上开启 `--lan`
+- Basic 凭据是**明文传输**的，且只有一个共享账号、无法单独登出。**不要暴露到公网**，也不要在不可信的公共 Wi-Fi 上开启 `--lan`；需要更强保障就套一层 HTTPS 反向代理
 
 ### 为降低维护成本做的取舍
 
@@ -329,26 +347,31 @@ node bin/pm.mjs ui --lan --token <随机字符串>      # 推荐：同时开启�
 
 ```bash
 docker compose up -d --build
-docker compose logs -f board      # 访问令牌会打印在这里
+docker compose logs -f board      # 访问口令会打印在这里
 ```
 
-然后打开 `http://<主机>:8930/?token=<日志里的令牌>`。数据落在具名卷 `pm-data`，`docker compose down` 不会丢。
+然后打开 `http://<主机>:8930/`，浏览器会弹出原生登录框（用户名默认 `pm`）。数据落在具名卷 `pm-data`，`docker compose down` 不会丢。
 
-### 访问令牌是强制的
+**看板与 MCP 是同一个容器、同一个端口**：MCP 端点就在 `http://<主机>:8930/mcp`，与看板共用同一套 Basic 凭据。远端 Agent 直接接这个地址即可，不用再单独起容器、也不用额外开放端口。
 
-容器里**必须**绑定 `0.0.0.0`，否则端口映射进不来——也就是说容器版默认就是「对外暴露」。而看板只有一个共享令牌，缺失时同网络内任何人都能读写、归档甚至删除数据。因此入口脚本在没给 `PM_TOKEN` 时会**自动生成一个**，打印到日志，并持久化到数据卷的 `.token`（重启复用，不会让浏览器里存的令牌失效）。
+### 访问口令是强制的
+
+容器里**必须**绑定 `0.0.0.0`，否则端口映射进不来——也就是说容器版默认就是「对外暴露」。而看板只有一个共享账号，口令缺失时同网络内任何人都能读写、归档甚至删除数据。因此入口脚本在没给 `PM_PASSWORD` 时会**自动生成一个**，打印到日志，并持久化到数据卷的 `.password`（重启复用，不会让浏览器反复要求重新登录）。
 
 ```bash
-docker logs no-project-manager | grep 访问令牌
+docker logs no-project-manager | grep 访问口令
 ```
 
-想固定成自己的令牌，在项目根目录建 `.env`（已被 `.gitignore` 忽略）：
+想固定成自己的口令，在项目根目录建 `.env`（已被 `.gitignore` 忽略）：
 
 ```
-PM_TOKEN=换成一段随机字符串
+PM_PASSWORD=换成一段随机字符串
+PM_USER=pm
 ```
 
-确实不需要令牌时设 `PM_ALLOW_ANONYMOUS=1`，并建议同时把端口收回回环：
+从旧版本升级无需改 `.env`：原来的 `PM_TOKEN` 会被当作口令沿用，数据卷里旧的 `.token` 也会自动迁移成 `.password`。
+
+确实不需要认证时设 `PM_ALLOW_ANONYMOUS=1`，并建议同时把端口收回回环：
 
 ```yaml
 ports:
@@ -379,20 +402,20 @@ docker exec no-project-manager node bin/pm.mjs link videorag --path /repos/video
 
 容器默认 UTC，而「今天是哪天」直接决定每日计划与动态流的日期分组。compose 里已设 `TZ=Asia/Shanghai`（镜像装了 `tzdata`），换时区改这个变量即可。
 
-### 也支持只跑 MCP 服务
+### 只想跑 MCP（不带看板）
 
 ```bash
 docker run -d -p 127.0.0.1:8931:8931 -v pm-data:/data no-project-manager:local \
   node bin/pm.mjs mcp http
 ```
 
-> ⚠️ MCP(HTTP) 服务**没有任何鉴权**。端口一旦对外，等于公开看板数据的读写权限——请只绑回环，或放进受控网络。
+> ⚠️ 这个**独立模式没有任何鉴权**，只适合绑回环、给本机调试用。正常用法是上面的统一服务——MCP 与看板同端口、共用凭据。
 
 要在**宿主机**上以 stdio 方式接给本机 Agent，直接跑 `node bin/pm.mjs mcp stdio` 比绕 Docker 简单。
 
 ### 镜像构成
 
-多阶段构建：前端在镜像内构建，运行阶段只装 `--omit=dev` 的依赖；以非 root（`node`，uid 1000）运行；内建 `git` 与 `tzdata`；自带 `HEALTHCHECK`（探测 `/api/health`，令牌从环境变量或数据卷的 `.token` 读取）。构建时会先校验基础镜像是否带内建 `node:sqlite`——缺了就在构建阶段失败，而不是等到运行。
+多阶段构建：前端在镜像内构建，运行阶段只装 `--omit=dev` 的依赖；以非 root（`node`，uid 1000）运行；内建 `git` 与 `tzdata`；**只暴露一个端口**（8930，看板与 MCP 共用）；自带 `HEALTHCHECK`（优先带 Basic 凭据探 `/api/health`，取不到口令时退回免认证的 `/health`）。构建时会先校验基础镜像是否带内建 `node:sqlite`——缺了就在构建阶段失败，而不是等到运行。
 
 ## 验证
 
@@ -401,7 +424,7 @@ npm run typecheck      # 后端类型检查
 npm run ui:typecheck   # 前端类型检查
 npm run test:merge     # 记录合并单测：显式关联 / 一对一配对 / 多候选放弃 / 增量转移
 npm run smoke          # MCP stdio 冒烟：工具/资源/CRUD/计划/风险 全链路
-npm run smoke:http     # MCP HTTP 冒烟：健康检查 + initialize + 工具调用
+npm run smoke:http     # 统一服务冒烟：REST 与 MCP 同端口同凭据 + 独立模式 + --no-mcp
 npm run smoke:api      # 看板 REST API 冒烟：静态页 + 项目 CRUD + 计划闭环
 ```
 

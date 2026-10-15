@@ -57,10 +57,11 @@ RUN mkdir -p /data \
 USER node
 
 VOLUME ["/data"]
-EXPOSE 8930 8931
+# 看板 UI、REST API 与 MCP(HTTP) 全在这一个端口上（MCP 端点是 /mcp）
+EXPOSE 8930
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD ["node", "scripts/healthcheck.mjs"]
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
-CMD ["node", "bin/pm.mjs", "ui"]
+CMD ["node", "bin/pm.mjs", "serve"]

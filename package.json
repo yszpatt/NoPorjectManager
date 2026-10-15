@@ -20,6 +20,7 @@
     "reindex": "node bin/pm.mjs reindex",
     "mcp:stdio": "node bin/pm.mjs mcp stdio",
     "mcp:http": "node bin/pm.mjs mcp http",
+    "serve": "node bin/pm.mjs serve",
     "ui": "node bin/pm.mjs ui",
     "ui:install": "npm --prefix web install",
     "ui:build": "npm --prefix web run build",

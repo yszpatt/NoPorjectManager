@@ -1,29 +1,36 @@
 /**
  * 容器健康检查。
  *
- * 两个坑：
- * 1. `/api/health` 和其它 /api/* 一样要校验令牌，不带令牌会拿到 401。
- * 2. 入口脚本自动生成的令牌只存在于它自己的进程环境里，而健康检查是
- *    Docker 另起的新进程——所以还得从数据目录里的令牌文件兜底读取。
+ * 看板与 MCP 在同一个端口上，所以只需要探一个地址：
+ * 1. 先带 Basic 凭据探 `/api/health` —— 它会读取数据目录与项目数，能验证数据层。
+ * 2. 口令拿不到时退回到免认证的 `/health` —— 只证明进程活着。
  *
- * 同时覆盖两种启动方式：默认跑看板（PM_UI_PORT），也可以把 CMD 换成
- * MCP(HTTP) 服务（PM_HTTP_PORT），哪种活着就算健康。
+ * 凭据为什么不能只读环境变量：入口脚本自动生成的口令只存在于它自己的进程环境里，
+ * 而健康检查是 Docker 另起的新进程，所以还得从数据目录里的口令文件兜底读取。
  */
 import fs from 'node:fs';
 import path from 'node:path';
 
 const dataDir = process.env.PM_DATA_DIR ?? '/data';
-const uiPort = Number(process.env.PM_UI_PORT ?? 8930);
-const mcpPort = Number(process.env.PM_HTTP_PORT ?? 8931);
+const port = Number(process.env.PM_UI_PORT ?? 8930);
+const base = `http://127.0.0.1:${port}`;
 
-function token() {
-  const fromEnv = (process.env.PM_TOKEN ?? '').trim();
-  if (fromEnv) return fromEnv;
+function readFile(name) {
   try {
-    return fs.readFileSync(path.join(dataDir, '.token'), 'utf8').trim();
+    return fs.readFileSync(path.join(dataDir, name), 'utf8').trim();
   } catch {
     return '';
   }
+}
+
+/** `Authorization: Basic …`；没有口令时返回空串（服务端未启用认证） */
+function basicAuth() {
+  const user = (process.env.PM_USER ?? 'pm').trim() || 'pm';
+  const password =
+    (process.env.PM_PASSWORD ?? process.env.PM_TOKEN ?? '').trim() ||
+    readFile('.password') ||
+    readFile('.token');
+  return password ? `Basic ${Buffer.from(`${user}:${password}`).toString('base64')}` : '';
 }
 
 async function probe(url, headers) {
@@ -35,9 +42,9 @@ async function probe(url, headers) {
   }
 }
 
-const t = token();
+const auth = basicAuth();
 const healthy =
-  (await probe(`http://127.0.0.1:${uiPort}/api/health`, t ? { 'x-pm-token': t } : {})) ||
-  (await probe(`http://127.0.0.1:${mcpPort}/health`, {}));
+  (auth ? await probe(`${base}/api/health`, { authorization: auth }) : false) ||
+  (await probe(`${base}/health`, {}));
 
 process.exit(healthy ? 0 : 1);

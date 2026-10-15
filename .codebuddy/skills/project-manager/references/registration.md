@@ -15,21 +15,29 @@ args:    ["<项目绝对路径>/bin/pm.mjs", "mcp", "stdio"]
 
 ### 方式 B：HTTP（多 Agent 共享、跨进程访问）
 
-先启动服务：
+看板 UI、REST API 与 MCP **在同一个服务、同一个端口上**，启动一次就够：
 
 ```bash
-npm run mcp:http        # 默认 http://localhost:8931/mcp
+npm run serve           # → http://localhost:8930/ ，MCP 端点在 /mcp
 ```
 
 再以 URL 方式注册：
 
 ```
-url: http://localhost:8931/mcp
+url: http://localhost:8930/mcp
 ```
 
-可用环境变量调整：`PM_HTTP_PORT`（默认 8931）、`PM_HTTP_PATH`（默认 `/mcp`）。健康检查：`GET /health`。
+**若该服务开了访问口令（`--password` / 容器部署），HTTP 注册必须带上同一套 Basic 凭据**，否则 MCP 请求会拿到 401：
+
+```
+headers: { "Authorization": "Basic <base64(pm:口令)>" }
+```
 
 无状态模式（每个请求独立），便于多个 Agent 并发访问同一份数据。
+
+可用环境变量调整：`PM_UI_PORT`（默认 8930）、`PM_HTTP_PATH`（默认 `/mcp`）、`PM_MCP=0`（关闭 MCP 端点）。健康检查：`GET /health`（免认证，只回存活状态）。
+
+> 只想给 MCP 开一个端口、不给看板 UI 时，用 `npm run mcp:http` 起独立模式：默认 `http://localhost:8931/mcp`，**没有任何鉴权**，请只绑回环。可用 `PM_HTTP_PORT` 调整端口。
 
 ### 在 CodeBuddy IDE 中注册
 
@@ -116,7 +124,7 @@ npm run ui           # http://localhost:8930
 
 界面与 MCP/CLI 读写同一份 Markdown 事实源，因此 Agent 的写入会立刻反映在看板上，反之亦然。开发前端时用 `npm run ui:dev`（Vite，8933 端口，`/api` 自动代理到 8930）。
 
-服务默认只监听 `127.0.0.1`。需要从其它设备访问时用 `pm ui --lan`（可选 `--token <字符串>` 开启访问令牌，启动时会打印带令牌的局域网地址）。**若为局域网模式且未设令牌，看板数据对同网络所有人可写可删**，告知用户前请确认这是他的意图。
+服务默认只监听 `127.0.0.1`。需要从其它设备访问时用 `pm serve --lan`（可选 `--password <口令>` 开启 HTTP Basic 认证，浏览器首次打开会弹原生登录框；MCP 端点共用同一套凭据）。**若为局域网模式且未设口令，看板数据对同网络所有人可写可删**，告知用户前请确认这是他的意图。
 
 ## 四、CLI（无 MCP 时的兜底）
 

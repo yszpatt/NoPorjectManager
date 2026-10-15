@@ -7,6 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createApp } from '../app.ts';
 import { discoverRepos, syncGit } from '../collectors/git.ts';
+import { handleMcpRequest, mcpHealthPayload, MCP_PATH } from '../mcp/http-handler.ts';
 import { analyzeRisks } from '../core/risk.ts';
 import type { CreateProjectInput } from '../core/project-service.ts';
 import type { ProjectFilter, ProjectStatus, SourceKind, UpdateType } from '../core/types.ts';
@@ -17,10 +18,18 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 const distDir = path.join(repoRoot, 'web', 'dist');
 
 /**
- * 访问令牌。为 null 表示不校验 —— 只应在「仅本机回环」的绑定下使用。
- * 一旦开放到局域网，强烈建议同时设置令牌。
+ * HTTP Basic 凭据。password 为 null 表示不校验 —— 只应在「仅本机回环」的绑定下使用。
+ * 一旦开放到局域网，强烈建议同时设置口令。
+ *
+ * 用 Basic 而不是自定义令牌，是因为浏览器对 Basic 的原生弹窗只弹一次、
+ * 之后自动携带凭据：前端不需要任何令牌存取逻辑，也就不存在「并发请求各弹一次」
+ * 这种毛病；curl / Agent 侧用 `-u user:pass` 也直接可用。
  */
-let accessToken: string | null = null;
+let authUser = 'pm';
+let authPassword: string | null = null;
+
+/** 是否在同一端口上挂载 MCP(Streamable HTTP) 端点；默认开启 */
+let mcpEnabled = true;
 
 interface Ctx {
   params: Record<string, string>;
@@ -432,21 +441,39 @@ function applyCors(req: IncomingMessage, res: ServerResponse): void {
     }
   }
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'content-type, x-pm-token');
+  // MCP 客户端会带这几个头；浏览器的预检必须放行，否则 MCP 端点会卡在 OPTIONS
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'content-type, authorization, mcp-session-id, mcp-protocol-version',
+  );
+  res.setHeader('Access-Control-Expose-Headers', 'mcp-session-id, mcp-protocol-version');
 }
 
-/** 定长比较，避免通过响应时间反推令牌 */
+/** 定长比较，避免通过响应时间反推口令 */
 function safeEqual(a: string, b: string): boolean {
   const ha = createHash('sha256').update(a).digest();
   const hb = createHash('sha256').update(b).digest();
   return timingSafeEqual(ha, hb);
 }
 
-function isAuthorized(req: IncomingMessage, url: URL): boolean {
-  if (!accessToken) return true;
-  const raw = req.headers['x-pm-token'];
-  const provided = (Array.isArray(raw) ? raw[0] : raw) ?? url.searchParams.get('token') ?? '';
-  return provided !== '' && safeEqual(provided, accessToken);
+/** 校验 `Authorization: Basic base64(user:pass)` */
+function isAuthorized(req: IncomingMessage): boolean {
+  if (!authPassword) return true;
+  const raw = req.headers.authorization;
+  const header = Array.isArray(raw) ? raw[0] : raw;
+  if (!header || !/^basic\s/i.test(header)) return false;
+  let decoded: string;
+  try {
+    decoded = Buffer.from(header.replace(/^basic\s+/i, '').trim(), 'base64').toString('utf8');
+  } catch {
+    return false;
+  }
+  const sep = decoded.indexOf(':');
+  if (sep < 0) return false;
+  // 两个比较都算完再返回，避免短路暴露「用户名是否正确」
+  const userOk = safeEqual(decoded.slice(0, sep), authUser);
+  const passOk = safeEqual(decoded.slice(sep + 1), authPassword);
+  return userOk && passOk;
 }
 
 async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -460,15 +487,40 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
   const urlPath = url.pathname;
 
-  if (!urlPath.startsWith('/api/')) {
-    serveStatic(res, urlPath);
+  // 免认证的就绪探针：只回「活着」。数据目录、项目数这类信息在 /api/health，走认证。
+  if (urlPath === '/health') {
+    sendJson(res, 200, mcpHealthPayload());
     return;
   }
 
-  if (!isAuthorized(req, url)) {
-    sendJson(res, 401, {
-      error: '未授权：请在页面 URL 上附加 ?token=… 或设置 x-pm-token 请求头',
-    });
+  // 用 --no-mcp 关掉后要明说，否则 SPA 的静态兜底会回一段 HTML，
+  // MCP 客户端只会看到「解析失败」，很难定位。
+  if (!mcpEnabled && urlPath === MCP_PATH) {
+    sendJson(res, 404, { error: 'MCP 端点已关闭', hint: '去掉 --no-mcp（或设 PM_MCP=1）后重启' });
+    return;
+  }
+
+  // MCP 与看板共用一个端口，也共用同一套凭据：先过认证，再分派
+  const isMcp = mcpEnabled && urlPath === MCP_PATH;
+  const isApi = urlPath.startsWith('/api/');
+
+  if (isMcp || isApi) {
+    if (!isAuthorized(req)) {
+      // 必须带 WWW-Authenticate（且含 realm），浏览器才会弹出原生登录框。
+      // realm 只能是 ASCII —— 头部出现非 ASCII 字符会让 setHeader 直接抛错。
+      // charset="UTF-8" 按 RFC 7617 声明凭据编码，中文口令才不会乱。
+      res.setHeader('WWW-Authenticate', 'Basic realm="Project Board", charset="UTF-8"');
+      sendJson(res, 401, { error: '未授权：需要 HTTP Basic 凭据' });
+      return;
+    }
+    if (isMcp) {
+      await handleMcpRequest(app, req, res, urlPath);
+      return;
+    }
+  }
+
+  if (!isApi) {
+    serveStatic(res, urlPath);
     return;
   }
 
@@ -508,15 +560,23 @@ export interface ApiServerOptions {
   port?: number;
   /** 绑定地址。默认仅本机回环；局域网访问用 '0.0.0.0' */
   host?: string;
-  /** 访问令牌；设置后 /api/* 必须携带 */
-  token?: string | null;
+  /** Basic 认证用户名，默认 pm */
+  user?: string;
+  /** Basic 认证口令；设置后 /api/* 与 MCP 端点都必须携带凭据 */
+  password?: string | null;
+  /** 是否在同一端口上挂载 MCP(Streamable HTTP) 端点，默认 true（`PM_MCP=0` 可关） */
+  mcp?: boolean;
 }
 
 export function startApiServer(options: ApiServerOptions | number = {}): http.Server {
   const opts = typeof options === 'number' ? { port: options } : options;
   const port = opts.port ?? Number(process.env.PM_UI_PORT ?? DEFAULT_PORT);
   const host = opts.host ?? process.env.PM_HOST ?? '127.0.0.1';
-  accessToken = (opts.token ?? process.env.PM_TOKEN ?? '').trim() || null;
+  authUser = (opts.user ?? process.env.PM_USER ?? 'pm').trim() || 'pm';
+  // PM_PASSWORD 是当前的名字；PM_TOKEN 保留为别名，旧部署的 .env 不至于失效
+  authPassword =
+    (opts.password ?? process.env.PM_PASSWORD ?? process.env.PM_TOKEN ?? '').trim() || null;
+  mcpEnabled = opts.mcp ?? process.env.PM_MCP !== '0';
 
   const server = http.createServer((req, res) => {
     void handle(req, res);
@@ -524,26 +584,30 @@ export function startApiServer(options: ApiServerOptions | number = {}): http.Se
 
   server.listen(port, host, () => {
     const exposed = host !== '127.0.0.1' && host !== 'localhost';
-    const suffix = accessToken ? `/?token=${accessToken}` : '/';
-    const lines = ['[project-manager] 看板服务已启动'];
-    lines.push(`  本机:   http://localhost:${port}${suffix}`);
+    const lines = ['[project-manager] 统一服务已启动（看板 + REST API + MCP）'];
+    lines.push(`  本机:   http://localhost:${port}/`);
 
     if (exposed) {
       const addrs = lanAddresses();
       if (addrs.length) {
-        for (const a of addrs) lines.push(`  局域网: http://${a}:${port}${suffix}`);
+        for (const a of addrs) lines.push(`  局域网: http://${a}:${port}/`);
       } else {
         lines.push('  局域网: 未检测到可用的局域网 IPv4 地址');
       }
       lines.push('  提示: 首次访问可能被 Windows 防火墙拦截，需要放行该端口');
-      if (!accessToken) {
-        lines.push('  警告: 未设置访问令牌，同网络内的任何人都可读写、归档甚至删除看板数据');
-        lines.push('        建议改为: pm ui --lan --token <一段随机字符串>');
+      if (authPassword) {
+        lines.push(`  认证:   Basic，用户名 ${authUser}；浏览器首次打开会弹出登录框`);
+      } else {
+        lines.push('  警告: 未设置访问口令，同网络内的任何人都可读写、归档甚至删除看板数据');
+        lines.push('        建议改为: pm serve --lan --password <一段随机字符串>');
       }
-    } else if (accessToken) {
-      lines.push('  已启用访问令牌校验');
+    } else if (authPassword) {
+      lines.push(`  已启用 Basic 认证（用户名 ${authUser}）`);
     }
 
+    if (mcpEnabled) {
+      lines.push(`  MCP:    http://localhost:${port}${MCP_PATH}（与看板共用凭据）`);
+    }
     if (!fs.existsSync(path.join(distDir, 'index.html'))) {
       lines.push('  注意: 前端尚未构建，先执行 npm run ui:build');
     }

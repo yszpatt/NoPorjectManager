@@ -100,9 +100,12 @@ const HELP = `项目管理看板 CLI
   pm config set '<json补丁>'
 
 服务
-  pm mcp stdio | pm mcp http        # 等价于 npm run mcp:stdio / mcp:http
-  pm ui [--port 8930]               # 启动看板 Web 服务（仅本机可访问）
-  pm ui --lan [--token <字符串>]     # 开放局域网访问；建议同时设置访问令牌
+  pm serve [--port 8930]                       # 统一服务：看板 UI + REST API + MCP(HTTP) 同端口
+  pm serve --lan --password <口令> [--user pm]  # 开放局域网访问；MCP 共用同一套凭据
+  pm serve --no-mcp                            # 只跑看板，不挂 MCP 端点
+  pm mcp stdio                                 # stdio 传输：本地 Agent 直连（推荐）
+  pm mcp http                                  # 独立 MCP(HTTP)：只有 MCP 端点，无看板、无认证
+  pm ui                                        # pm serve 的旧名字，行为一致
 `;
 
 async function main(): Promise<void> {
@@ -121,14 +124,17 @@ async function main(): Promise<void> {
     return;
   }
 
-  if (cmd === 'ui') {
+  // serve 是推荐的名字（看板 + API + MCP 一体）；ui 是它的旧名字，行为一致
+  if (cmd === 'serve' || cmd === 'ui') {
     const { startApiServer } = await import('../api/server.ts');
     const lan = bool(flags, 'lan');
     startApiServer({
       port: num(flags, 'port'),
       // --lan 等价于绑定所有网卡；也可用 --host 指定具体地址
       host: str(flags, 'host') ?? (lan ? '0.0.0.0' : undefined),
-      token: str(flags, 'token') ?? null,
+      user: str(flags, 'user'),
+      password: str(flags, 'password') ?? null,
+      mcp: !bool(flags, 'no-mcp'),
     });
     return;
   }

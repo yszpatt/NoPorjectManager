@@ -10,37 +10,20 @@ import type {
 } from './types';
 
 const BASE = '/api';
-const TOKEN_KEY = 'pm-token';
 
 /**
- * 从 URL 读取 ?token=… 并立刻从地址栏抹掉，避免令牌留在浏览器历史/书签里。
- * 服务端用 PM_TOKEN 开启校验时，局域网内的其他设备用这个带 token 的链接即可直接进入。
+ * 这里没有任何令牌存取逻辑 —— 服务端启用认证时用的是 HTTP Basic：
+ * 浏览器会自行弹出原生登录框、把凭据缓存下来，并在后续请求上自动携带。
+ * 前端不该、也不需要接触口令。
  */
-function takeTokenFromUrl(): string | null {
-  try {
-    const url = new URL(window.location.href);
-    const t = url.searchParams.get('token');
-    if (!t) return null;
-    url.searchParams.delete('token');
-    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
-    return t;
-  } catch {
-    return null;
-  }
-}
-
-let token: string | null = takeTokenFromUrl() ?? window.localStorage.getItem(TOKEN_KEY);
-if (token) window.localStorage.setItem(TOKEN_KEY, token);
-
-function withToken(init?: RequestInit): RequestInit {
+function send(path: string, init?: RequestInit): Promise<Response> {
   const headers: Record<string, string> = {};
   if (init?.body) headers['content-type'] = 'application/json';
-  if (token) headers['x-pm-token'] = token;
-  return { ...init, headers: { ...headers, ...(init?.headers as Record<string, string> | undefined) } };
-}
-
-function send(path: string, init?: RequestInit): Promise<Response> {
-  return fetch(`${BASE}${path}`, withToken(init));
+  return fetch(`${BASE}${path}`, {
+    ...init,
+    // 调用方显式传的 headers 优先级更高（保持与改动前一致）
+    headers: { ...headers, ...(init?.headers as Record<string, string> | undefined) },
+  });
 }
 
 async function parse<T>(res: Response): Promise<T> {
@@ -54,17 +37,9 @@ async function parse<T>(res: Response): Promise<T> {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  let res = await send(path, init);
-  // 服务端开了令牌校验但本地还没存：问一次，存下来再重试
-  if (res.status === 401) {
-    const entered = window.prompt('该看板已启用访问令牌，请输入令牌：');
-    if (entered && entered.trim()) {
-      token = entered.trim();
-      window.localStorage.setItem(TOKEN_KEY, token);
-      res = await send(path, init);
-    }
-  }
-  return parse<T>(res);
+  // 401 交给浏览器：它会弹一次原生登录框，认证通过后自动重发这个请求。
+  // 曾经的实现在这里 window.prompt，并发请求会各弹一次，输入完还在弹。
+  return parse<T>(await send(path, init));
 }
 
 function qs(params: Record<string, string | number | boolean | undefined | null>): string {
