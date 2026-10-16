@@ -27,11 +27,26 @@ export interface Notice {
   text: string;
 }
 
+/** 字号档位：整套尺度都是 rem，改根字号即可整体放大（见 styles.css） */
+type FontScale = 'normal' | 'large' | 'xlarge';
+
+const FONT_SCALES: Array<{ key: FontScale; label: string }> = [
+  { key: 'normal', label: '标准' },
+  { key: 'large', label: '大' },
+  { key: 'xlarge', label: '特大' },
+];
+
 export default function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const saved = localStorage.getItem('pm-theme');
     if (saved === 'light' || saved === 'dark') return saved;
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
+
+  /** 字号是纯前端偏好，存本地；默认「大」——看板是拿来读的，不是仪表盘 */
+  const [fontScale, setFontScale] = useState<FontScale>(() => {
+    const saved = localStorage.getItem('pm-font-scale');
+    return saved === 'normal' || saved === 'large' || saved === 'xlarge' ? saved : 'large';
   });
 
   const [view, setView] = useState<ViewKey>('board');
@@ -71,6 +86,11 @@ export default function App() {
     document.documentElement.classList.toggle('dark', theme === 'dark');
     localStorage.setItem('pm-theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    document.documentElement.dataset.fontScale = fontScale;
+    localStorage.setItem('pm-font-scale', fontScale);
+  }, [fontScale]);
 
   const notify = useCallback((n: Notice) => {
     setNotice(n);
@@ -131,6 +151,13 @@ export default function App() {
 
   const activeCount = summary?.totals.active ?? 0;
   const staleCount = reminders.length;
+  const fontScaleLabel = FONT_SCALES.find((s) => s.key === fontScale)?.label ?? '大';
+  const cycleFontScale = () => {
+    const i = FONT_SCALES.findIndex((s) => s.key === fontScale);
+    const next = FONT_SCALES[(i + 1) % FONT_SCALES.length]!;
+    setFontScale(next.key);
+    notify({ kind: 'ok', text: `字号已切换为「${next.label}」` });
+  };
   const openTasks = plan && plan.status !== 'none' ? plan.tasks.filter((t) => t.status !== 'done').length : 0;
   const totalTasks = plan && plan.status !== 'none' ? plan.tasks.length : 0;
 
@@ -139,10 +166,10 @@ export default function App() {
       <header className="sticky top-0 z-30 border-b border-line bg-surface/88 backdrop-blur-md">
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-3 gap-y-2 px-5 py-2.5">
           <div className="flex items-center gap-2">
-            <span className="grid size-6 place-items-center rounded-md bg-accent text-[12px] font-bold text-white">
+            <span className="grid size-6 place-items-center rounded-md bg-accent text-body font-bold text-white">
               P
             </span>
-            <h1 className="text-[14px] font-semibold tracking-tight text-ink">{projectName}</h1>
+            <h1 className="text-title font-semibold tracking-tight text-ink">{projectName}</h1>
           </div>
 
           <nav className="flex items-center gap-0.5 rounded-lg bg-surface-2 p-0.5">
@@ -150,7 +177,7 @@ export default function App() {
               <button
                 key={v.key}
                 onClick={() => setView(v.key)}
-                className={`rounded-md px-2.5 py-1 text-[12.5px] font-medium transition-colors ${
+                className={`rounded-md px-2.5 py-1 text-body font-medium transition-colors ${
                   view === v.key ? 'bg-surface text-ink shadow-sm' : 'text-ink-mute hover:text-ink-soft'
                 }`}
               >
@@ -160,7 +187,7 @@ export default function App() {
           </nav>
 
           {/* 统计本身就是筛选器，省掉一整排筛选按钮 */}
-          <div className="hidden items-center gap-1 text-[12px] text-ink-soft lg:flex">
+          <div className="hidden items-center gap-1 text-body text-ink-soft lg:flex">
             <FocusStat
               label="在做"
               value={activeCount}
@@ -210,8 +237,15 @@ export default function App() {
               + 新建
             </Btn>
             <button
+              onClick={cycleFontScale}
+              className="grid size-7 place-items-center rounded-lg border border-line text-meta font-semibold text-ink-mute transition-colors hover:text-ink"
+              title={`字号：${fontScaleLabel}（点击切换 标准 / 大 / 特大）`}
+            >
+              Aa
+            </button>
+            <button
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className="grid size-7 place-items-center rounded-lg border border-line text-ink-mute transition-colors hover:text-ink"
+              className="grid size-7 place-items-center rounded-lg border border-line text-meta text-ink-mute transition-colors hover:text-ink"
               title="切换深浅色"
             >
               {theme === 'dark' ? '☾' : '☀'}
@@ -221,7 +255,7 @@ export default function App() {
 
         {notice && (
           <div
-            className={`fade-up border-t px-5 py-1.5 text-[12px] ${
+            className={`fade-up border-t px-5 py-1.5 text-body ${
               notice.kind === 'ok'
                 ? 'border-ok/20 bg-ok/8 text-ok'
                 : 'border-danger/20 bg-danger/8 text-danger'

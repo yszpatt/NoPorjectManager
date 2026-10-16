@@ -113,7 +113,7 @@ export function ProjectDrawer({ projectId, onClose, onChanged, notify }: Props) 
   }, [detail, showAllEvents]);
 
   return (
-    <Drawer open={Boolean(projectId)} onClose={onClose} width={620}>
+    <Drawer open={Boolean(projectId)} onClose={onClose} width={40}>
       {loading && !detail ? (
         <div className="flex flex-col gap-3 p-5">
           <Skeleton className="h-7 w-2/3" />
@@ -121,14 +121,14 @@ export function ProjectDrawer({ projectId, onClose, onChanged, notify }: Props) 
           <Skeleton className="h-32" />
         </div>
       ) : !detail ? (
-        <div className="p-8 text-center text-[13px] text-ink-mute">项目不存在或已被删除</div>
+        <div className="p-8 text-center text-lead text-ink-mute">项目不存在或已被删除</div>
       ) : (
         <div className="flex flex-col">
           {/* 头部：标题 + 两个动作，其余进菜单 */}
           <header className="sticky top-0 z-10 border-b border-line bg-surface/92 px-5 py-3.5 backdrop-blur">
             <div className="flex items-center gap-2">
               <PriorityBadge priority={detail.priority} />
-              <h2 className="min-w-0 flex-1 truncate text-[15.5px] font-semibold tracking-tight text-ink">
+              <h2 className="min-w-0 flex-1 truncate text-title font-semibold tracking-tight text-ink">
                 {detail.name}
               </h2>
               <Btn size="sm" variant="primary" disabled={busy} onClick={() => setPanel(panel === 'progress' ? null : 'progress')}>
@@ -177,7 +177,7 @@ export function ProjectDrawer({ projectId, onClose, onChanged, notify }: Props) 
               </button>
             </div>
 
-            <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-ink-mute">
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-meta text-ink-mute">
               <code className="rounded bg-surface-2 px-1.5 py-0.5">{detail.id}</code>
               <StatusBadge status={detail.status} />
               {(detail.health === 'at_risk' || detail.health === 'stale' || detail.health === 'unknown') && (
@@ -196,7 +196,7 @@ export function ProjectDrawer({ projectId, onClose, onChanged, notify }: Props) 
             {/* 计划停滞提醒：这是唯一会主动打断你的信号 */}
             {detail.reminder && (
               <div
-                className={`mt-2 rounded-lg border border-line bg-surface-2/60 px-3 py-2 text-[11.5px] leading-relaxed ${
+                className={`mt-2 rounded-lg border border-line bg-surface-2/60 px-3 py-2 text-meta leading-relaxed ${
                   REMINDER_LEVEL_CLASS[detail.reminder.level]
                 }`}
               >
@@ -249,15 +249,15 @@ export function ProjectDrawer({ projectId, onClose, onChanged, notify }: Props) 
                   tone={HEALTH_TONE[detail.health]}
                 />
                 <div>
-                  <div className="text-[11px] text-ink-mute">进度</div>
-                  <div className="tnum text-[15px] font-semibold text-ink">{detail.progress}%</div>
+                  <div className="text-meta text-ink-mute">进度</div>
+                  <div className="tnum text-title font-semibold text-ink">{detail.progress}%</div>
                 </div>
               </div>
 
               <div>
-                <div className="text-[11px] text-ink-mute">截止</div>
+                <div className="text-meta text-ink-mute">截止</div>
                 <div
-                  className={`tnum text-[15px] font-semibold ${
+                  className={`tnum text-title font-semibold ${
                     detail.days_to_target !== null && detail.days_to_target < 0
                       ? 'text-danger'
                       : 'text-ink'
@@ -266,7 +266,7 @@ export function ProjectDrawer({ projectId, onClose, onChanged, notify }: Props) 
                   {detail.target_date ? fmtDate(detail.target_date) : '未设'}
                 </div>
                 {detail.target_date && (
-                  <div className="text-[10.5px] text-ink-mute">{daysLabel(detail.days_to_target)}</div>
+                  <div className="text-micro text-ink-mute">{daysLabel(detail.days_to_target)}</div>
                 )}
               </div>
 
@@ -286,7 +286,7 @@ export function ProjectDrawer({ projectId, onClose, onChanged, notify }: Props) 
             </div>
 
             {detail.health_reason && (
-              <p className="mt-3 text-[11.5px] leading-relaxed text-ink-mute">
+              <p className="mt-3 text-meta leading-relaxed text-ink-mute">
                 {detail.health_reason}
               </p>
             )}
@@ -297,7 +297,7 @@ export function ProjectDrawer({ projectId, onClose, onChanged, notify }: Props) 
               </div>
             )}
 
-            <p className="mt-3 text-[10.5px] text-ink-mute">
+            <p className="mt-3 text-micro text-ink-mute">
               活跃度 {detail.momentum.toFixed(1)} · 最近活动 {detail.days_since_activity} 天前 ·{' '}
               {detail.event_count} 条记录
             </p>
@@ -306,16 +306,16 @@ export function ProjectDrawer({ projectId, onClose, onChanged, notify }: Props) 
           {/* 发布记录：独立开发里最值得留档的东西 */}
           <section className="border-b border-line px-5 py-4">
             <div className="mb-2.5 flex flex-wrap items-center gap-2">
-              <h3 className="text-[12.5px] font-semibold text-ink">发布记录</h3>
-              <span className="tnum text-[11px] text-ink-mute">{detail.releases.length}</span>
+              <h3 className="text-body font-semibold text-ink">发布记录</h3>
+              <span className="tnum text-meta text-ink-mute">{detail.releases.length}</span>
               {detail.last_release && (
-                <span className="text-[10.5px] text-ink-mute">
+                <span className="text-micro text-ink-mute">
                   · 最近 {detail.last_release.version}（{relTime(detail.last_release.date)}）
                 </span>
               )}
             </div>
             {detail.releases.length === 0 ? (
-              <p className="text-[12px] leading-relaxed text-ink-mute">
+              <p className="text-body leading-relaxed text-ink-mute">
                 还没有发布记录。点「记录发布」留档第一个版本；关联仓库并打了版本 tag 后，同步 Git 会
                 自动把 tag 采集为发布。
               </p>
@@ -323,14 +323,14 @@ export function ProjectDrawer({ projectId, onClose, onChanged, notify }: Props) 
               <ul className="flex flex-col">
                 {detail.releases.map((r) => (
                   <li key={`${r.version}-${r.date}`} className="flex items-start gap-2.5 py-1.5">
-                    <span className="mt-0.5 shrink-0 rounded bg-ok/12 px-1.5 py-0.5 text-[10.5px] font-medium text-ok">
+                    <span className="mt-0.5 shrink-0 rounded bg-ok/12 px-1.5 py-0.5 text-micro font-medium text-ok">
                       {r.version}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="text-[12px] leading-relaxed text-ink-soft">
+                      <div className="text-body leading-relaxed text-ink-soft">
                         {r.note ?? '（无说明）'}
                       </div>
-                      <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[10.5px] text-ink-mute">
+                      <div className="mt-0.5 flex flex-wrap items-center gap-2 text-micro text-ink-mute">
                         <span>{fmtDate(r.date)}</span>
                         {r.tag && (
                           <code className="rounded bg-surface-2 px-1 py-px font-mono">{r.tag}</code>
@@ -356,9 +356,9 @@ export function ProjectDrawer({ projectId, onClose, onChanged, notify }: Props) 
           {/* 未来规划：每日计划的输入源，默认展开 */}
           <section className="border-b border-line px-5 py-4">
             <div className="mb-2.5 flex items-center gap-2">
-              <h3 className="text-[12.5px] font-semibold text-ink">未来规划</h3>
-              <span className="tnum text-[11px] text-ink-mute">{detail.roadmap.length}</span>
-              <span className="truncate text-[10.5px] text-ink-mute">· 每日计划由最近的里程碑推导</span>
+              <h3 className="text-body font-semibold text-ink">未来规划</h3>
+              <span className="tnum text-meta text-ink-mute">{detail.roadmap.length}</span>
+              <span className="truncate text-micro text-ink-mute">· 每日计划由最近的里程碑推导</span>
             </div>
             <RoadmapEditor
               items={detail.roadmap}
@@ -400,12 +400,12 @@ export function ProjectDrawer({ projectId, onClose, onChanged, notify }: Props) 
           {/* 时间线：默认只看最近几条 */}
           <section className="px-5 py-4">
             <div className="mb-2.5 flex items-center gap-2">
-              <h3 className="text-[12.5px] font-semibold text-ink">进展记录</h3>
-              <span className="tnum text-[11px] text-ink-mute">{detail.event_count}</span>
+              <h3 className="text-body font-semibold text-ink">进展记录</h3>
+              <span className="tnum text-meta text-ink-mute">{detail.event_count}</span>
             </div>
 
             {detail.timeline.length === 0 ? (
-              <p className="text-[12px] text-ink-mute">还没有记录。点「记录进展」写下第一条。</p>
+              <p className="text-body text-ink-mute">还没有记录。点「记录进展」写下第一条。</p>
             ) : (
               <>
                 <ul className="flex flex-col gap-1.5">
@@ -416,20 +416,20 @@ export function ProjectDrawer({ projectId, onClose, onChanged, notify }: Props) 
                         <CommitChip commits={e.commits} />
                         {e.delta !== undefined && e.delta !== 0 && (
                           <span
-                            className={`tnum text-[10.5px] font-semibold ${
+                            className={`tnum text-micro font-semibold ${
                               e.delta > 0 ? 'text-ok' : 'text-danger'
                             }`}
                           >
                             {e.delta > 0 ? `+${e.delta}` : e.delta}
                           </span>
                         )}
-                        <span className="ml-auto text-[10.5px] text-ink-mute">{relTime(e.ts)}</span>
+                        <span className="ml-auto text-micro text-ink-mute">{relTime(e.ts)}</span>
                       </div>
-                      <p className="mt-1 whitespace-pre-line text-[12px] leading-relaxed text-ink-soft">
+                      <p className="mt-1 whitespace-pre-line text-body leading-relaxed text-ink-soft">
                         {e.content}
                       </p>
                       {(e.actor || e.refs) && (
-                        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-ink-mute">
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-micro text-ink-mute">
                           {e.actor && <span>{e.actor}</span>}
                           {e.refs &&
                             Object.entries(e.refs).map(([k, v]) => (
@@ -445,7 +445,7 @@ export function ProjectDrawer({ projectId, onClose, onChanged, notify }: Props) 
                 {detail.timeline.length > RECENT_EVENTS && (
                   <button
                     onClick={() => setShowAllEvents(!showAllEvents)}
-                    className="mt-2 text-[11.5px] text-ink-mute transition-colors hover:text-accent"
+                    className="mt-2 text-meta text-ink-mute transition-colors hover:text-accent"
                   >
                     {showAllEvents ? '收起' : `展开全部 ${detail.timeline.length} 条`}
                   </button>
@@ -454,7 +454,7 @@ export function ProjectDrawer({ projectId, onClose, onChanged, notify }: Props) 
             )}
           </section>
 
-          <footer className="border-t border-line px-5 py-3 text-[10.5px] text-ink-mute">
+          <footer className="border-t border-line px-5 py-3 text-micro text-ink-mute">
             事实源：<code>.projectmanager/projects/{detail.id}.md</code>
           </footer>
         </div>
@@ -491,7 +491,7 @@ function RoadmapEditor({
   return (
     <div className="flex flex-col">
       {items.length === 0 ? (
-        <p className="text-[12px] leading-relaxed text-ink-mute">
+        <p className="text-body leading-relaxed text-ink-mute">
           还没有里程碑。没有未来规划时，每日计划只能给出空泛的建议。
         </p>
       ) : (
@@ -511,7 +511,7 @@ function RoadmapEditor({
                       status: ROADMAP_CYCLE[(ROADMAP_CYCLE.indexOf(r.status) + 1) % ROADMAP_CYCLE.length],
                     })
                   }
-                  className={`shrink-0 rounded px-1.5 py-0.5 text-[10.5px] font-medium transition-colors ${
+                  className={`shrink-0 rounded px-1.5 py-0.5 text-micro font-medium transition-colors ${
                     r.status === 'done'
                       ? 'bg-ok/12 text-ok'
                       : r.status === 'in_progress'
@@ -525,7 +525,7 @@ function RoadmapEditor({
                   {ROADMAP_STATUS_LABEL[r.status]}
                 </button>
                 <span
-                  className={`min-w-0 flex-1 truncate text-[12.5px] ${
+                  className={`min-w-0 flex-1 truncate text-body ${
                     r.status === 'done' || r.status === 'dropped'
                       ? 'text-ink-mute line-through'
                       : 'text-ink'
@@ -535,14 +535,14 @@ function RoadmapEditor({
                 </span>
                 {/* 已完成/已放弃的项不再显示倒计时 —— 它已经没有行动含义 */}
                 {r.due && r.status !== 'done' && r.status !== 'dropped' && (
-                  <span className={`tnum shrink-0 text-[10.5px] ${overdue ? 'text-danger' : 'text-ink-mute'}`}>
+                  <span className={`tnum shrink-0 text-micro ${overdue ? 'text-danger' : 'text-ink-mute'}`}>
                     {daysLabel(days)}
                   </span>
                 )}
                 <button
                   disabled={busy}
                   onClick={() => onRemove(r.id)}
-                  className="shrink-0 text-[11px] text-ink-mute opacity-0 transition-opacity group-hover:opacity-100 hover:text-danger"
+                  className="shrink-0 text-meta text-ink-mute opacity-0 transition-opacity group-hover:opacity-100 hover:text-danger"
                   title="删除"
                 >
                   ✕
@@ -567,7 +567,7 @@ function RoadmapEditor({
       ) : (
         <button
           onClick={() => setOpen(true)}
-          className="mt-1.5 self-start text-[11.5px] text-ink-mute transition-colors hover:text-accent"
+          className="mt-1.5 self-start text-meta text-ink-mute transition-colors hover:text-accent"
         >
           + 添加里程碑
         </button>
@@ -644,7 +644,7 @@ function GoalEditor({
       ) : (
         <button
           onClick={() => setOpen(true)}
-          className="mt-2 self-start text-[11.5px] text-ink-mute transition-colors hover:text-accent"
+          className="mt-2 self-start text-meta text-ink-mute transition-colors hover:text-accent"
         >
           + 添加目标
         </button>
@@ -669,16 +669,16 @@ function GoalRow({
   return (
     <li className="group py-2">
       <div className="flex items-center gap-2">
-        <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink">{goal.title}</span>
+        <span className="min-w-0 flex-1 truncate text-body text-ink">{goal.title}</span>
         {hasMetric && (
-          <span className="tnum text-[11px] text-ink-soft">
+          <span className="tnum text-meta text-ink-soft">
             {goal.current ?? 0}/{goal.target} {goal.metric ?? ''}
           </span>
         )}
         <button
           onClick={onRemove}
           disabled={busy}
-          className="text-[11px] text-ink-mute opacity-0 transition-opacity group-hover:opacity-100 hover:text-danger"
+          className="text-meta text-ink-mute opacity-0 transition-opacity group-hover:opacity-100 hover:text-danger"
           title="删除目标"
         >
           ✕
@@ -694,7 +694,7 @@ function GoalRow({
               key={d}
               disabled={busy}
               onClick={() => onSave({ current: Math.min(goal.target!, (goal.current ?? 0) + d) })}
-              className="rounded border border-line px-1.5 py-px text-[10.5px] text-ink-mute transition-colors hover:border-accent hover:text-accent"
+              className="rounded border border-line px-1.5 py-px text-micro text-ink-mute transition-colors hover:border-accent hover:text-accent"
             >
               +{d}
             </button>
@@ -703,7 +703,7 @@ function GoalRow({
             <button
               disabled={busy}
               onClick={() => onSave({ status: 'done', current: goal.target })}
-              className="rounded border border-line px-1.5 py-px text-[10.5px] text-ink-mute transition-colors hover:border-ok hover:text-ok"
+              className="rounded border border-line px-1.5 py-px text-micro text-ink-mute transition-colors hover:border-ok hover:text-ok"
             >
               达成
             </button>
@@ -732,17 +732,17 @@ function RepoEditor({
   return (
     <div className="flex flex-col gap-1.5 px-5">
       {repos.length === 0 && !open && (
-        <p className="text-[12px] text-ink-mute">尚未关联仓库，Git 提交不会被采集。</p>
+        <p className="text-body text-ink-mute">尚未关联仓库，Git 提交不会被采集。</p>
       )}
       {repos.map((r) => {
         const key = r.path ?? r.url ?? '';
         return (
           <div key={key} className="group flex items-center gap-2 rounded-lg border border-line bg-surface px-2.5 py-1.5">
-            <code className="min-w-0 flex-1 truncate font-mono text-[11px] text-ink-soft">{key}</code>
+            <code className="min-w-0 flex-1 truncate font-mono text-meta text-ink-soft">{key}</code>
             <button
               disabled={busy}
               onClick={() => onUnlink(key)}
-              className="text-[11px] text-ink-mute opacity-0 transition-opacity group-hover:opacity-100 hover:text-danger"
+              className="text-meta text-ink-mute opacity-0 transition-opacity group-hover:opacity-100 hover:text-danger"
             >
               ✕
             </button>
@@ -771,7 +771,7 @@ function RepoEditor({
       ) : (
         <button
           onClick={() => setOpen(true)}
-          className="mt-1 self-start text-[11.5px] text-ink-mute transition-colors hover:text-accent"
+          className="mt-1 self-start text-meta text-ink-mute transition-colors hover:text-accent"
         >
           + 关联仓库
         </button>
@@ -872,7 +872,7 @@ function ProgressForm({
             type="number"
             value={delta}
             onChange={(e) => setDelta(e.target.value)}
-            className="tnum w-16 rounded-md border border-line bg-surface px-2 py-1 text-[12px] text-ink"
+            className="tnum w-16 rounded-md border border-line bg-surface px-2 py-1 text-body text-ink"
           />
         )}
         <Btn

@@ -77,7 +77,7 @@ export function Board({ cards, onOpen, onChanged, notify }: Props) {
         return (
           <div
             key={status}
-            className="flex w-[288px] shrink-0 flex-col"
+            className="flex w-[18rem] shrink-0 flex-col"
             onDragOver={(e) => {
               e.preventDefault();
               setHoverCol(status);
@@ -92,8 +92,8 @@ export function Board({ cards, onOpen, onChanged, notify }: Props) {
           >
             <header className="mb-2 flex items-center gap-2 px-0.5">
               <span className={`size-1.5 rounded-full ${meta.bg}`} />
-              <h2 className="text-[12px] font-medium text-ink-soft">{meta.label}</h2>
-              <span className="tnum text-[11px] text-ink-mute">{list.length}</span>
+              <h2 className="text-body font-medium text-ink-soft">{meta.label}</h2>
+              <span className="tnum text-meta text-ink-mute">{list.length}</span>
             </header>
 
             <div
@@ -115,7 +115,7 @@ export function Board({ cards, onOpen, onChanged, notify }: Props) {
                 />
               ))}
               {list.length === 0 && (
-                <div className="flex flex-1 items-center justify-center py-5 text-[11px] text-ink-mute">
+                <div className="flex flex-1 items-center justify-center py-5 text-meta text-ink-mute">
                   {isHover ? '松手放到这里' : '空'}
                 </div>
               )}
@@ -164,9 +164,9 @@ function ProjectCard({
     >
       {/* ① 名称 + 状态 */}
       <div className="flex items-center gap-2">
-        <h3 className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">{card.name}</h3>
+        <h3 className="min-w-0 flex-1 truncate text-lead font-medium text-ink">{card.name}</h3>
         <span
-          className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${statusMeta.soft} ${statusMeta.text}`}
+          className={`shrink-0 rounded px-1.5 py-0.5 text-micro font-medium ${statusMeta.soft} ${statusMeta.text}`}
         >
           {statusMeta.label}
         </span>
@@ -175,7 +175,7 @@ function ProjectCard({
       {/* ② 提醒：只有"计划停滞 / 没有计划"会出现在这里 */}
       {rem && (
         <p
-          className={`mt-1 flex items-start gap-1 text-[11px] leading-snug ${REMINDER_LEVEL_CLASS[rem.level]}`}
+          className={`mt-1 flex items-start gap-1 text-meta leading-snug ${REMINDER_LEVEL_CLASS[rem.level]}`}
           title={rem.suggestion}
         >
           <span className="shrink-0">{REMINDER_ICON[rem.kind] ?? '⏳'}</span>
@@ -193,7 +193,7 @@ function ProjectCard({
         {plans.length > 0 ? (
           <ul className="mt-0.5 flex flex-col gap-0.5">
             {plans.map((plan, i) => (
-              <li key={i} className="flex items-baseline gap-1.5 text-[11px] leading-snug">
+              <li key={i} className="flex items-baseline gap-1.5 text-meta leading-snug">
                 <span
                   className={`min-w-0 flex-1 truncate ${
                     plan.status === 'in_progress' ? 'text-ink-soft' : 'text-ink-mute'
@@ -204,13 +204,13 @@ function ProjectCard({
                   {plan.title}
                 </span>
                 {plan.due && (
-                  <span className="shrink-0 text-[10px] text-ink-mute">{plan.due.slice(5)}</span>
+                  <span className="shrink-0 text-micro text-ink-mute">{plan.due.slice(5)}</span>
                 )}
               </li>
             ))}
           </ul>
         ) : (
-          <p className="mt-0.5 text-[11px] text-ink-mute">没有后续计划</p>
+          <p className="mt-0.5 text-meta text-ink-mute">没有后续计划</p>
         )}
       </div>
 
@@ -220,19 +220,19 @@ function ProjectCard({
         {updates.length > 0 ? (
           <ul className="mt-0.5 flex flex-col gap-0.5">
             {updates.map((u, i) => (
-              <li key={i} className="flex items-baseline gap-1.5 text-[11px] leading-snug">
-                <span className="shrink-0 text-[10px] text-ink-mute">
+              <li key={i} className="flex items-baseline gap-1.5 text-meta leading-snug">
+                <span className="shrink-0 text-micro text-ink-mute">
                   {(SOURCE_META[u.source]?.label ?? '记录').slice(0, 1)}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-ink-mute" title={u.content}>
                   {u.content}
                 </span>
-                <span className="shrink-0 text-[10px] text-ink-mute">{relTime(u.ts)}</span>
+                <span className="shrink-0 text-micro text-ink-mute">{relTime(u.ts)}</span>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="mt-0.5 text-[11px] text-ink-mute">还没有任何记录</p>
+          <p className="mt-0.5 text-meta text-ink-mute">还没有任何记录</p>
         )}
       </div>
     </article>
@@ -242,7 +242,7 @@ function ProjectCard({
 /** 卡片里的小节标题：图标 + 名称 + 可选的右侧说明 */
 function CardLabel({ icon, text, note }: { icon: string; text: string; note?: string }) {
   return (
-    <div className="flex items-baseline gap-1.5 text-[10px] tracking-wide text-ink-mute">
+    <div className="flex items-baseline gap-1.5 text-micro tracking-wide text-ink-mute">
       <span className="shrink-0">{icon}</span>
       <span className="font-medium">{text}</span>
       {note && <span className="ml-auto shrink-0">{note}</span>}

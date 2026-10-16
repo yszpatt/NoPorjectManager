@@ -74,14 +74,14 @@ export function Today({ plan, cards, onChanged, notify, onOpen }: Props) {
   const hasPlan = Boolean(plan && plan.status !== 'none' && plan.tasks.length > 0);
 
   return (
-    <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+    <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_21.25rem]">
       <section className="rounded-[var(--radius-card)] border border-line bg-surface">
         <header className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-3">
           <div className="flex items-baseline gap-2">
-            <h2 className="text-[14px] font-semibold text-ink">{plan?.date ?? '今日'}</h2>
+            <h2 className="text-title font-semibold text-ink">{plan?.date ?? '今日'}</h2>
             {hasPlan && plan && (
               <span
-                className={`rounded px-1.5 py-0.5 text-[10.5px] font-medium ${
+                className={`rounded px-1.5 py-0.5 text-micro font-medium ${
                   plan.status === 'active'
                     ? 'bg-accent/12 text-accent'
                     : plan.status === 'closed'
@@ -93,7 +93,7 @@ export function Today({ plan, cards, onChanged, notify, onOpen }: Props) {
               </span>
             )}
             {hasPlan && (
-              <span className="tnum text-[11.5px] text-ink-mute">
+              <span className="tnum text-meta text-ink-mute">
                 {doneCount}/{plan?.tasks.length} 完成
               </span>
             )}
@@ -133,7 +133,7 @@ export function Today({ plan, cards, onChanged, notify, onOpen }: Props) {
         </header>
 
         {plan?.summary && (
-          <p className="border-b border-line bg-surface-2/50 px-4 py-2 text-[11.5px] leading-relaxed text-ink-soft">
+          <p className="border-b border-line bg-surface-2/50 px-4 py-2 text-meta leading-relaxed text-ink-soft">
             {plan.summary}
           </p>
         )}
@@ -168,27 +168,27 @@ export function Today({ plan, cards, onChanged, notify, onOpen }: Props) {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <span
-                          className={`text-[13px] leading-snug font-medium ${
+                          className={`text-lead leading-snug font-medium ${
                             done ? 'text-ink-mute line-through' : 'text-ink'
                           }`}
                         >
                           {t.title}
                         </span>
                         {t.estimate && (
-                          <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[10.5px] text-ink-mute">
+                          <span className="rounded bg-surface-2 px-1.5 py-0.5 text-micro text-ink-mute">
                             {t.estimate}
                           </span>
                         )}
                       </div>
                       {t.rationale && !done && (
-                        <div className="mt-1 text-[11px] leading-relaxed text-ink-mute">
+                        <div className="mt-1 text-meta leading-relaxed text-ink-mute">
                           ↳ {t.rationale}
                         </div>
                       )}
                       {linked && (
                         <button
                           onClick={() => onOpen(linked.id)}
-                          className="mt-1.5 inline-flex items-center gap-1.5 rounded bg-surface-2 px-1.5 py-0.5 text-[10.5px] text-ink-soft transition-colors hover:text-accent"
+                          className="mt-1.5 inline-flex items-center gap-1.5 rounded bg-surface-2 px-1.5 py-0.5 text-micro text-ink-soft transition-colors hover:text-accent"
                         >
                           <PriorityBadge priority={linked.priority} />
                           {linked.name}
@@ -199,7 +199,7 @@ export function Today({ plan, cards, onChanged, notify, onOpen }: Props) {
                     {!done && (
                       <button
                         onClick={() => setExpanded(isOpen ? null : t.id)}
-                        className="shrink-0 rounded px-1.5 py-0.5 text-[11px] text-ink-mute transition-colors hover:text-ink"
+                        className="shrink-0 rounded px-1.5 py-0.5 text-meta text-ink-mute transition-colors hover:text-ink"
                         title="完成并同时上报进度"
                       >
                         完成并记 Δ
@@ -231,7 +231,7 @@ export function Today({ plan, cards, onChanged, notify, onOpen }: Props) {
           <select
             value={newProject}
             onChange={(e) => setNewProject(e.target.value)}
-            className="rounded-lg border border-line bg-surface px-2 py-1.5 text-[12px] text-ink-soft"
+            className="rounded-lg border border-line bg-surface px-2 py-1.5 text-body text-ink-soft"
           >
             <option value="">不关联项目</option>
             {cards.map((c) => (
@@ -249,11 +249,11 @@ export function Today({ plan, cards, onChanged, notify, onOpen }: Props) {
       <aside className="flex flex-col gap-3">
         <section className="rounded-[var(--radius-card)] border border-line bg-surface">
           <header className="border-b border-line px-4 py-3">
-            <h2 className="text-[13px] font-semibold text-ink">计划提醒</h2>
-            <p className="mt-0.5 text-[11px] text-ink-mute">有想做的事，但很久没动了</p>
+            <h2 className="text-lead font-semibold text-ink">计划提醒</h2>
+            <p className="mt-0.5 text-meta text-ink-mute">有想做的事，但很久没动了</p>
           </header>
           {attention.length === 0 ? (
-            <div className="px-4 py-6 text-center text-[12px] text-ink-mute">
+            <div className="px-4 py-6 text-center text-body text-ink-mute">
               所有后续计划都在推进中
             </div>
           ) : (
@@ -266,18 +266,18 @@ export function Today({ plan, cards, onChanged, notify, onOpen }: Props) {
                   >
                     <div className="flex items-center gap-2">
                       <PriorityBadge priority={c.priority} />
-                      <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-ink">
+                      <span className="min-w-0 flex-1 truncate text-body font-medium text-ink">
                         {c.name}
                       </span>
                     </div>
                     <div
-                      className={`mt-1 text-[10.5px] leading-relaxed ${
+                      className={`mt-1 text-micro leading-relaxed ${
                         REMINDER_LEVEL_CLASS[c.reminder!.level]
                       }`}
                     >
                       {c.reminder!.detail}
                     </div>
-                    <div className="mt-0.5 text-[10.5px] text-ink-mute">
+                    <div className="mt-0.5 text-micro text-ink-mute">
                       {c.reminder!.suggestion}
                     </div>
                   </button>
@@ -309,22 +309,22 @@ function CompleteForm({
     <div className="mt-2.5 flex flex-wrap items-center gap-2 rounded-lg border border-line bg-surface-2/60 px-2.5 py-2">
       {withProject ? (
         <>
-          <span className="text-[11px] text-ink-mute">进度增量</span>
+          <span className="text-meta text-ink-mute">进度增量</span>
           <input
             type="number"
             value={delta}
             onChange={(e) => setDelta(e.target.value)}
-            className="tnum w-16 rounded-md border border-line bg-surface px-2 py-1 text-[12px] text-ink"
+            className="tnum w-16 rounded-md border border-line bg-surface px-2 py-1 text-body text-ink"
           />
         </>
       ) : (
-        <span className="text-[11px] text-ink-mute">该任务未关联项目，仅标记完成</span>
+        <span className="text-meta text-ink-mute">该任务未关联项目，仅标记完成</span>
       )}
       <input
         value={note}
         placeholder="进展说明（可选）"
         onChange={(e) => setNote(e.target.value)}
-        className="min-w-[160px] flex-1 rounded-md border border-line bg-surface px-2 py-1 text-[12px] text-ink placeholder:text-ink-mute"
+        className="min-w-[160px] flex-1 rounded-md border border-line bg-surface px-2 py-1 text-body text-ink placeholder:text-ink-mute"
       />
       <Btn size="sm" variant="primary" disabled={busy} onClick={() => onSubmit({ delta: Number(delta) || undefined, note: note || undefined })}>
         确认完成

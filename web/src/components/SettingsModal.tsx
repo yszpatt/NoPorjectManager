@@ -123,8 +123,8 @@ export function SettingsModal({ open, onClose, notify, onConfigSaved }: Props) {
     <Modal open={open} onClose={onClose} title="设置" footer={<Btn onClick={onClose}>关闭</Btn>}>
       <section className="flex flex-col gap-2.5">
         <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
-          <h3 className="text-[12.5px] font-semibold text-ink">访问鉴权</h3>
-          <span className={`text-[11px] ${auth?.enabled ? 'text-ink-mute' : 'text-danger'}`}>
+          <h3 className="text-body font-semibold text-ink">访问鉴权</h3>
+          <span className={`text-meta ${auth?.enabled ? 'text-ink-mute' : 'text-danger'}`}>
             {sourceText}
           </span>
         </div>
@@ -141,7 +141,7 @@ export function SettingsModal({ open, onClose, notify, onConfigSaved }: Props) {
           </Field>
         </div>
 
-        <p className="text-[11px] leading-relaxed text-ink-mute">
+        <p className="text-meta leading-relaxed text-ink-mute">
           口令只以 scrypt 派生值落盘（<code className="rounded bg-surface-2 px-1">{auth?.file ?? '…'}</code>
           ），不存明文，所以还留着找回的余地：忘了口令就用{' '}
           <code className="rounded bg-surface-2 px-1">pm auth reset</code> 清掉它重新设置。
@@ -160,7 +160,7 @@ export function SettingsModal({ open, onClose, notify, onConfigSaved }: Props) {
       </section>
 
       <section className="flex flex-col gap-2.5 border-t border-line pt-3.5">
-        <h3 className="text-[12.5px] font-semibold text-ink">常用</h3>
+        <h3 className="text-body font-semibold text-ink">常用</h3>
         <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
           <Field label="看板名称">
             <Input value={projectName} onChange={setProjectName} placeholder="项目看板" />

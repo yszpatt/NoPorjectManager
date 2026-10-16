@@ -16,7 +16,8 @@
   --color-line-strong: #d3d8e2;
   --color-ink: #141926;
   --color-ink-soft: #4d5769;
-  --color-ink-mute: #8892a4;
+  /* 次要文字要能长时间读：浅色下 ≥ 4.5:1，不再用「灰到发虚」的 #8892a4 */
+  --color-ink-mute: #6a7387;
   --color-accent: #4f46e5;
   --color-accent-soft: #eef0ff;
   --color-ok: #059669;
@@ -26,6 +27,19 @@
   --color-idle: #64748b;
 
   --radius-card: 0.875rem;
+
+  /*
+   * 排版尺度。看板是「长文阅读」而不是仪表盘，所以最小字号 12px、
+   * 正文 14px 起步，并且一律用 rem 表达 —— 只有 rem 才能跟着根字号
+   * （见下面的 html[data-font-scale]）整体放大。
+   * 新代码不要再写 text-[11px] 这类裸 px 字号。
+   */
+  --text-micro: 0.75rem; /* 12px 徽章、时间戳、卡片小节标题 */
+  --text-meta: 0.8125rem; /* 13px 说明文字、列表条目、次要按钮 */
+  --text-body: 0.875rem; /* 14px 正文、表格、按钮 */
+  --text-lead: 0.9375rem; /* 15px 卡片标题、区块标题、重点条目 */
+  --text-title: 1.0625rem; /* 17px 页面标题、抽屉标题、关键数字 */
+
   --font-sans:
     'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
     'Microsoft YaHei', 'Noto Sans SC', sans-serif;
@@ -39,7 +53,7 @@
   --color-line-strong: #2e3a50;
   --color-ink: #e9edf5;
   --color-ink-soft: #a6b1c6;
-  --color-ink-mute: #6c7889;
+  --color-ink-mute: #838fa3;
   --color-accent: #8d95ff;
   --color-accent-soft: #1c2338;
   --color-ok: #34d399;
@@ -47,6 +61,25 @@
   --color-danger: #fb7185;
   --color-info: #38bdf8;
   --color-idle: #94a3b8;
+}
+
+:root {
+  /* 顶栏高度：动态流的日期分组头要吸在它下面，写成 rem 才能跟着字号走 */
+  --pm-header-h: 3.375rem;
+}
+
+/*
+ * 字号档位。整套尺度都是 rem，改根字号就能同时放大文字、间距与控件，
+ * 不需要为每处尺寸写第二套值。百分比基准是浏览器默认字号（通常 16px）。
+ */
+html {
+  font-size: 100%;
+}
+html[data-font-scale='large'] {
+  font-size: 112.5%;
+}
+html[data-font-scale='xlarge'] {
+  font-size: 125%;
 }
 
 html,
@@ -58,6 +91,9 @@ body {
   background-color: var(--color-canvas);
   color: var(--color-ink);
   font-family: var(--font-sans);
+  /* 正文 14px + 1.65 行高：中文在这种字号下才不挤 */
+  font-size: 0.875rem;
+  line-height: 1.65;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }

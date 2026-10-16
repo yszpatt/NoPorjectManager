@@ -69,11 +69,11 @@ export function Feed({ cards, onOpen }: Props) {
   }, [entries]);
 
   return (
-    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_18.75rem]">
       <section className="rounded-[var(--radius-card)] border border-line bg-surface">
         <header className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2.5">
-          <h2 className="text-[13px] font-semibold text-ink">动态流</h2>
-          <span className="text-[11px] text-ink-mute">所有项目的思考、发布与计划记录</span>
+          <h2 className="text-lead font-semibold text-ink">动态流</h2>
+          <span className="text-meta text-ink-mute">所有项目的思考、发布与计划记录</span>
 
           <div className="ml-auto flex flex-wrap items-center gap-1.5">
             <div className="flex items-center gap-0.5 rounded-lg bg-surface-2 p-0.5">
@@ -81,7 +81,7 @@ export function Feed({ cards, onOpen }: Props) {
                 <button
                   key={t.key}
                   onClick={() => setTypeFilter(t.key)}
-                  className={`rounded-md px-2 py-0.5 text-[11.5px] font-medium transition-colors ${
+                  className={`rounded-md px-2 py-0.5 text-meta font-medium transition-colors ${
                     typeFilter === t.key
                       ? 'bg-surface text-ink shadow-sm'
                       : 'text-ink-mute hover:text-ink-soft'
@@ -94,7 +94,7 @@ export function Feed({ cards, onOpen }: Props) {
             <select
               value={project}
               onChange={(e) => setProject(e.target.value)}
-              className="rounded-lg border border-line bg-surface px-2 py-1 text-[12px] text-ink-soft"
+              className="rounded-lg border border-line bg-surface px-2 py-1 text-body text-ink-soft"
             >
               <option value="">全部项目</option>
               {cards.map((c) => (
@@ -121,9 +121,9 @@ export function Feed({ cards, onOpen }: Props) {
           <div className="flex flex-col px-4 py-3">
             {grouped.map(([day, list]) => (
               <div key={day} className="mb-1">
-                <div className="sticky top-[52px] z-10 -mx-1 mb-1 flex items-center gap-2 bg-surface/90 px-1 py-1 backdrop-blur">
-                  <span className="text-[11px] font-medium text-ink-mute">{fmtDate(day)}</span>
-                  <span className="tnum text-[10.5px] text-ink-mute">{list.length} 条</span>
+                <div className="sticky top-[var(--pm-header-h)] z-10 -mx-1 mb-1 flex items-center gap-2 bg-surface/90 px-1 py-1 backdrop-blur">
+                  <span className="text-meta font-medium text-ink-mute">{fmtDate(day)}</span>
+                  <span className="tnum text-micro text-ink-mute">{list.length} 条</span>
                   <span className="h-px flex-1 bg-line" />
                 </div>
                 <ul className="flex flex-col">
@@ -133,21 +133,21 @@ export function Feed({ cards, onOpen }: Props) {
                         onClick={() => onOpen(e.project_id)}
                         className="group flex w-full items-start gap-2.5 rounded-lg px-1.5 py-1.5 text-left transition-colors hover:bg-surface-2/60"
                       >
-                        <span className="tnum mt-0.5 shrink-0 text-[10.5px] text-ink-mute">
+                        <span className="tnum mt-0.5 shrink-0 text-micro text-ink-mute">
                           {e.ts.slice(11, 16)}
                         </span>
                         <span
-                          className={`mt-0.5 shrink-0 rounded px-1.5 py-px text-[10px] font-medium ${
+                          className={`mt-0.5 shrink-0 rounded px-1.5 py-px text-micro font-medium ${
                             UPDATE_TYPE_CLASS[e.type] ?? 'bg-surface-2 text-ink-soft'
                           }`}
                         >
                           {UPDATE_TYPE_LABEL[e.type] ?? e.type}
                         </span>
-                        <span className="mt-0.5 max-w-[110px] shrink-0 truncate text-[11px] text-ink-soft">
+                        <span className="mt-0.5 max-w-[7rem] shrink-0 truncate text-meta text-ink-soft">
                           {e.project_name}
                         </span>
                         {/* pre-line：记录是「结论 + 分条」的多行格式，要按行渲染 */}
-                        <span className="min-w-0 flex-1 whitespace-pre-line text-[12px] leading-relaxed text-ink-soft">
+                        <span className="min-w-0 flex-1 whitespace-pre-line text-body leading-relaxed text-ink-soft">
                           {/* 版本与增量属于整条记录，放在结论行开头；跟在正文尾部会被误读成最后一条要点的 */}
                           {e.version && (
                             <span className="mr-1.5 font-medium text-ok">{e.version}</span>
@@ -169,7 +169,7 @@ export function Feed({ cards, onOpen }: Props) {
                           </span>
                         ) : null}
                         <span
-                          className={`mt-0.5 shrink-0 rounded px-1 py-px text-[10px] ${
+                          className={`mt-0.5 shrink-0 rounded px-1 py-px text-micro ${
                             SOURCE_META[e.source].soft
                           } ${SOURCE_META[e.source].text}`}
                           title={e.actor ? `${SOURCE_META[e.source].label} · ${e.actor}` : undefined}
@@ -189,11 +189,11 @@ export function Feed({ cards, onOpen }: Props) {
       <aside className="flex flex-col gap-3">
         <section className="rounded-[var(--radius-card)] border border-line bg-surface">
           <header className="border-b border-line px-4 py-3">
-            <h2 className="text-[13px] font-semibold text-ink">计划提醒</h2>
-            <p className="mt-0.5 text-[11px] text-ink-mute">有想做的事，但很久没动了</p>
+            <h2 className="text-lead font-semibold text-ink">计划提醒</h2>
+            <p className="mt-0.5 text-meta text-ink-mute">有想做的事，但很久没动了</p>
           </header>
           {reminders.length === 0 ? (
-            <div className="px-4 py-6 text-center text-[12px] text-ink-mute">
+            <div className="px-4 py-6 text-center text-body text-ink-mute">
               所有后续计划都在推进中
             </div>
           ) : (
@@ -204,11 +204,11 @@ export function Feed({ cards, onOpen }: Props) {
                     onClick={() => onOpen(r.project_id)}
                     className="w-full px-4 py-2.5 text-left transition-colors hover:bg-surface-2/60"
                   >
-                    <div className="text-[12.5px] font-medium text-ink">{r.project}</div>
-                    <div className={`mt-0.5 text-[11px] ${REMINDER_LEVEL_CLASS[r.level]}`}>
+                    <div className="text-body font-medium text-ink">{r.project}</div>
+                    <div className={`mt-0.5 text-meta ${REMINDER_LEVEL_CLASS[r.level]}`}>
                       {r.detail}
                     </div>
-                    <div className="mt-0.5 text-[10.5px] text-ink-mute">{r.suggestion}</div>
+                    <div className="mt-0.5 text-micro text-ink-mute">{r.suggestion}</div>
                   </button>
                 </li>
               ))}
@@ -218,8 +218,8 @@ export function Feed({ cards, onOpen }: Props) {
 
         <section className="rounded-[var(--radius-card)] border border-line bg-surface">
           <header className="border-b border-line px-4 py-3">
-            <h2 className="text-[13px] font-semibold text-ink">最近无动静</h2>
-            <p className="mt-0.5 text-[11px] text-ink-mute">按距上次记录时长排序</p>
+            <h2 className="text-lead font-semibold text-ink">最近无动静</h2>
+            <p className="mt-0.5 text-meta text-ink-mute">按距上次记录时长排序</p>
           </header>
           <ul className="divide-y divide-line">
             {[...cards]
@@ -232,11 +232,11 @@ export function Feed({ cards, onOpen }: Props) {
                     className="flex w-full items-center gap-2 px-4 py-2 text-left transition-colors hover:bg-surface-2/60"
                   >
                     <PriorityBadge priority={c.priority} />
-                    <span className="min-w-0 flex-1 truncate text-[12px] text-ink-soft">
+                    <span className="min-w-0 flex-1 truncate text-body text-ink-soft">
                       {c.name}
                     </span>
                     <StatusBadge status={c.status} />
-                    <span className="tnum shrink-0 text-[11px] text-ink-mute">
+                    <span className="tnum shrink-0 text-meta text-ink-mute">
                       {c.days_since_activity} 天
                     </span>
                   </button>

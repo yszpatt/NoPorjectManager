@@ -60,9 +60,9 @@ export function TableView({ cards, onOpen }: Props) {
 
   return (
     <div className="overflow-x-auto rounded-[var(--radius-card)] border border-line bg-surface">
-      <table className="w-full min-w-[760px] border-collapse text-[12.5px]">
+      <table className="w-full min-w-[47.5rem] border-collapse text-body">
         <thead>
-          <tr className="border-b border-line text-left text-[11px] tracking-wide text-ink-mute uppercase">
+          <tr className="border-b border-line text-left text-meta tracking-wide text-ink-mute uppercase">
             {COLUMNS.map((c) => (
               <th
                 key={c.key}
@@ -88,7 +88,7 @@ export function TableView({ cards, onOpen }: Props) {
                 onClick={() => onOpen(c.id)}
                 className="cursor-pointer border-b border-line/70 transition-colors last:border-0 hover:bg-surface-2/60"
               >
-                <td className="max-w-[280px] px-3 py-2">
+                <td className="max-w-[17.5rem] px-3 py-2">
                   <div className="flex items-center gap-2.5">
                     <span
                       className="h-7 w-[3px] shrink-0 rounded-full"
@@ -97,7 +97,7 @@ export function TableView({ cards, onOpen }: Props) {
                     />
                     <div className="min-w-0">
                       <div className="truncate font-medium text-ink">{c.name}</div>
-                      <div className="truncate text-[10.5px] text-ink-mute">
+                      <div className="truncate text-micro text-ink-mute">
                         {rem ? (
                           <span className={REMINDER_LEVEL_CLASS[rem.level]}>{rem.detail}</span>
                         ) : (
@@ -110,37 +110,37 @@ export function TableView({ cards, onOpen }: Props) {
                 <td className="px-3 py-2">
                   <StatusBadge status={c.status} />
                 </td>
-                <td className="max-w-[190px] px-3 py-2">
+                <td className="max-w-[12rem] px-3 py-2">
                   {c.last_release ? (
                     <span className="flex items-baseline gap-1.5">
                       <span className="font-medium text-ok">{c.last_release.version}</span>
-                      <span className="truncate text-[11px] text-ink-mute">
+                      <span className="truncate text-meta text-ink-mute">
                         {relTime(c.last_release.date)}
                       </span>
                       {c.release_count > 1 && (
-                        <span className="tnum shrink-0 text-[10px] text-ink-mute">
+                        <span className="tnum shrink-0 text-micro text-ink-mute">
                           共 {c.release_count} 次
                         </span>
                       )}
                     </span>
                   ) : (
-                    <span className="text-[11.5px] text-ink-mute">尚未发布</span>
+                    <span className="text-meta text-ink-mute">尚未发布</span>
                   )}
                 </td>
-                <td className="max-w-[220px] px-3 py-2">
+                <td className="max-w-[13.75rem] px-3 py-2">
                   {plan ? (
                     <span className="flex items-baseline gap-1.5">
                       <span className="truncate text-ink-soft" title={plan.title}>
                         {plan.title}
                       </span>
                       {c.open_plans > 1 && (
-                        <span className="shrink-0 text-[10.5px] text-ink-mute">
+                        <span className="shrink-0 text-micro text-ink-mute">
                           +{c.open_plans - 1}
                         </span>
                       )}
                     </span>
                   ) : (
-                    <span className="text-[11.5px] text-ink-mute">没有后续计划</span>
+                    <span className="text-meta text-ink-mute">没有后续计划</span>
                   )}
                 </td>
                 <td className="tnum px-3 py-2 text-right">

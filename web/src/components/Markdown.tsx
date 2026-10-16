@@ -41,7 +41,7 @@ export function Markdown({ text }: { text: string }) {
         blocks.push(
           <pre
             key={`pre-${blocks.length}`}
-            className="my-2 overflow-x-auto rounded-lg border border-line bg-surface-2 px-3 py-2 text-[11.5px] leading-relaxed"
+            className="my-2 overflow-x-auto rounded-lg border border-line bg-surface-2 px-3 py-2 text-meta leading-relaxed"
           >
             <code>{code.join('\n')}</code>
           </pre>,
@@ -67,8 +67,8 @@ export function Markdown({ text }: { text: string }) {
       const content = inline(heading[2] ?? '');
       const cls =
         level <= 2
-          ? 'mt-4 mb-1.5 text-[14px] font-semibold text-ink'
-          : 'mt-3 mb-1 text-[12.5px] font-semibold text-ink-soft';
+          ? 'mt-4 mb-1.5 text-title font-semibold text-ink'
+          : 'mt-3 mb-1 text-body font-semibold text-ink-soft';
       blocks.push(
         <div key={`h-${blocks.length}`} className={cls}>
           {content}
@@ -97,13 +97,13 @@ export function Markdown({ text }: { text: string }) {
   flushParagraph();
   if (code) {
     blocks.push(
-      <pre key="pre-tail" className="my-2 overflow-x-auto rounded-lg border border-line bg-surface-2 px-3 py-2 text-[11.5px]">
+      <pre key="pre-tail" className="my-2 overflow-x-auto rounded-lg border border-line bg-surface-2 px-3 py-2 text-meta">
         <code>{code.join('\n')}</code>
       </pre>,
     );
   }
 
-  return <div className="text-[12.5px] text-ink-soft">{blocks}</div>;
+  return <div className="text-body text-ink-soft">{blocks}</div>;
 }
 
 function inline(text: string): ReactNode[] {
@@ -125,7 +125,7 @@ function inline(text: string): ReactNode[] {
       parts.push(
         <code
           key={key++}
-          className="rounded border border-line bg-surface-2 px-1 py-px font-mono text-[11px] text-ink"
+          className="rounded border border-line bg-surface-2 px-1 py-px font-mono text-meta text-ink"
         >
           {token.slice(1, -1)}
         </code>,

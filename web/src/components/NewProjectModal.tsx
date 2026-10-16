@@ -127,9 +127,9 @@ export function NewProjectModal({ open, onClose, onCreated, notify }: Props) {
 
       <button
         onClick={() => setAdvanced(!advanced)}
-        className="flex items-center gap-1.5 self-start text-[11.5px] text-ink-mute transition-colors hover:text-ink"
+        className="flex items-center gap-1.5 self-start text-meta text-ink-mute transition-colors hover:text-ink"
       >
-        <span className={`text-[9px] transition-transform ${advanced ? 'rotate-90' : ''}`}>▶</span>
+        <span className={`text-micro transition-transform ${advanced ? 'rotate-90' : ''}`}>▶</span>
         更多选项
       </button>
 
@@ -164,7 +164,7 @@ export function NewProjectModal({ open, onClose, onCreated, notify }: Props) {
           </Field>
 
           <div>
-            <div className="mb-1.5 text-[11px] font-medium tracking-wide text-ink-mute uppercase">
+            <div className="mb-1.5 text-meta font-medium tracking-wide text-ink-mute uppercase">
               第一个里程碑（填了才能被每日计划推导）
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -182,7 +182,7 @@ export function NewProjectModal({ open, onClose, onCreated, notify }: Props) {
           </Field>
 
           {!effectiveId && name.trim() !== '' && (
-            <p className="text-[11px] text-warn">
+            <p className="text-meta text-warn">
               项目名不含 ASCII 字符，将自动生成随机 id。建议填写 id，便于在 commit message 与 CLI 中引用。
             </p>
           )}

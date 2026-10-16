@@ -54,7 +54,7 @@ export function ProgressRing({
       </svg>
       <span
         className="tnum absolute inset-0 flex items-center justify-center font-semibold text-ink"
-        style={{ fontSize: size <= 34 ? 10 : 11 }}
+        style={{ fontSize: size <= 34 ? 12 : 14 }}
       >
         {Math.round(v)}
       </span>
@@ -77,7 +77,7 @@ export function Sparkline({
 }) {
   if (points.length < 2) {
     return (
-      <div className="flex items-center text-[11px] text-ink-mute" style={{ height }}>
+      <div className="flex items-center text-meta text-ink-mute" style={{ height }}>
         样本不足
       </div>
     );
@@ -126,7 +126,7 @@ export function Chip({
       : 'bg-surface-2 text-ink-soft border border-line';
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium ${cls}`}
+      className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-meta font-medium ${cls}`}
       title={title}
     >
       {children}
@@ -138,7 +138,7 @@ export function HealthBadge({ health, reason }: { health: Health; reason?: strin
   const m = HEALTH_META[health];
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[11px] font-medium ${m.soft} ${m.text}`}
+      className={`inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-meta font-medium ${m.soft} ${m.text}`}
       title={reason}
     >
       <span className={`size-1.5 rounded-full ${m.bg}`} />
@@ -150,7 +150,7 @@ export function HealthBadge({ health, reason }: { health: Health; reason?: strin
 export function StatusBadge({ status }: { status: Status }) {
   const m = STATUS_META[status];
   return (
-    <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-medium ${m.soft} ${m.text}`}>
+    <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-meta font-medium ${m.soft} ${m.text}`}>
       {m.label}
     </span>
   );
@@ -159,7 +159,7 @@ export function StatusBadge({ status }: { status: Status }) {
 export function PriorityBadge({ priority }: { priority: Priority }) {
   const m = PRIORITY_META[priority];
   return (
-    <span className={`text-[11px] font-bold tracking-wide ${m.text}`} title={`优先级 ${priority}`}>
+    <span className={`text-meta font-bold tracking-wide ${m.text}`} title={`优先级 ${priority}`}>
       {m.label}
     </span>
   );
@@ -169,7 +169,7 @@ export function SourceBadge({ source, ts }: { source: Source; ts?: string }) {
   const m = SOURCE_META[source];
   return (
     <span
-      className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium ${m.soft} ${m.text}`}
+      className={`inline-flex items-center rounded px-1.5 py-0.5 text-micro font-medium ${m.soft} ${m.text}`}
       title={ts ? `${ts}` : undefined}
     >
       {m.label}
@@ -186,7 +186,7 @@ export function CommitChip({ commits }: { commits?: LinkedCommit[] }) {
   const title = commits.map((c) => `${c.sha.slice(0, 8)}  ${c.subject ?? ''}`).join('\n');
   return (
     <span
-      className="inline-flex shrink-0 items-center gap-1 rounded bg-surface-2 px-1.5 py-px font-mono text-[10px] text-ink-mute"
+      className="inline-flex shrink-0 items-center gap-1 rounded bg-surface-2 px-1.5 py-px font-mono text-micro text-ink-mute"
       title={`已并入的提交：\n${title}`}
     >
       {commits[0]!.sha.slice(0, 7)}
@@ -216,7 +216,7 @@ export function Btn({
 }) {
   const base =
     'inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition-colors disabled:opacity-45 disabled:cursor-not-allowed';
-  const sizes = size === 'sm' ? 'px-2.5 py-1 text-xs' : 'px-3.5 py-1.5 text-[13px]';
+  const sizes = size === 'sm' ? 'px-2.5 py-1 text-meta' : 'px-3.5 py-1.5 text-body';
   const variants = {
     primary: 'bg-accent text-white hover:opacity-90',
     ghost: 'border border-line bg-surface text-ink-soft hover:text-ink hover:border-line-strong',
@@ -249,7 +249,7 @@ export function Input({
       value={value}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
-      className={`rounded-lg border border-line bg-surface px-2.5 py-1.5 text-[13px] text-ink placeholder:text-ink-mute ${className}`}
+      className={`rounded-lg border border-line bg-surface px-2.5 py-1.5 text-body text-ink placeholder:text-ink-mute ${className}`}
     />
   );
 }
@@ -271,7 +271,7 @@ export function TextArea({
       rows={rows}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full resize-y rounded-lg border border-line bg-surface px-2.5 py-2 text-[13px] leading-relaxed text-ink placeholder:text-ink-mute"
+      className="w-full resize-y rounded-lg border border-line bg-surface px-2.5 py-2 text-body leading-relaxed text-ink placeholder:text-ink-mute"
     />
   );
 }
@@ -291,7 +291,7 @@ export function Select({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className={`rounded-lg border border-line bg-surface px-2 py-1.5 text-[13px] text-ink ${className}`}
+      className={`rounded-lg border border-line bg-surface px-2 py-1.5 text-body text-ink ${className}`}
     >
       {options.map((o) => (
         <option key={o.value} value={o.value}>
@@ -305,7 +305,7 @@ export function Select({
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="text-[11px] font-medium tracking-wide text-ink-mute uppercase">{label}</span>
+      <span className="text-meta font-medium tracking-wide text-ink-mute uppercase">{label}</span>
       {children}
     </label>
   );
@@ -324,23 +324,24 @@ export function Panel({ children, className = '' }: { children: ReactNode; class
 export function Empty({ title, hint, action }: { title: string; hint?: string; action?: ReactNode }) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 px-6 py-16 text-center">
-      <div className="text-sm font-medium text-ink-soft">{title}</div>
-      {hint && <div className="max-w-md text-xs leading-relaxed text-ink-mute">{hint}</div>}
+      <div className="text-lead font-medium text-ink-soft">{title}</div>
+      {hint && <div className="max-w-md text-body leading-relaxed text-ink-mute">{hint}</div>}
       {action && <div className="mt-2">{action}</div>}
     </div>
   );
 }
 
-/** 右侧抽屉：ESC 关闭 + 锁滚动 */
+/** 右侧抽屉：ESC 关闭 + 锁滚动。宽度用 rem，跟着字号档位一起变宽 */
 export function Drawer({
   open,
   onClose,
   children,
-  width = 620,
+  width = 40,
 }: {
   open: boolean;
   onClose: () => void;
   children: ReactNode;
+  /** 抽屉宽度（rem）：40rem = 640px @ 16px 根字号，字号调大时同步变宽 */
   width?: number;
 }) {
   useEffect(() => {
@@ -363,7 +364,7 @@ export function Drawer({
       <div className="absolute inset-0 bg-black/35 backdrop-blur-[1px]" onClick={onClose} />
       <div
         className="slide-in relative h-full overflow-y-auto border-l border-line bg-canvas shadow-2xl"
-        style={{ width: `min(${width}px, 96vw)` }}
+        style={{ width: `min(${width}rem, 96vw)` }}
       >
         {children}
       </div>
@@ -398,7 +399,7 @@ export function Modal({
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="fade-up relative w-full max-w-lg rounded-[var(--radius-card)] border border-line bg-surface shadow-2xl">
         <header className="flex items-center justify-between border-b border-line px-5 py-3.5">
-          <h2 className="text-sm font-semibold text-ink">{title}</h2>
+          <h2 className="text-lead font-semibold text-ink">{title}</h2>
           <button onClick={onClose} className="text-ink-mute transition-colors hover:text-ink" aria-label="关闭">
             ✕
           </button>
@@ -439,14 +440,14 @@ export function Collapsible({
         className="flex w-full items-center gap-2 px-5 py-3 text-left transition-colors hover:bg-surface-2/50"
       >
         <span
-          className={`text-[9px] text-ink-mute transition-transform ${open ? 'rotate-90' : ''}`}
+          className={`text-micro text-ink-mute transition-transform ${open ? 'rotate-90' : ''}`}
           aria-hidden
         >
           ▶
         </span>
-        <span className="text-[12.5px] font-semibold text-ink">{title}</span>
-        {count !== undefined && <span className="tnum text-[11px] text-ink-mute">{count}</span>}
-        {hint && <span className="truncate text-[10.5px] text-ink-mute">· {hint}</span>}
+        <span className="text-body font-semibold text-ink">{title}</span>
+        {count !== undefined && <span className="tnum text-meta text-ink-mute">{count}</span>}
+        {hint && <span className="truncate text-micro text-ink-mute">· {hint}</span>}
       </button>
       {open && <div className="pb-3.5">{children}</div>}
     </section>
@@ -500,7 +501,7 @@ export function Menu({
                 setOpen(false);
                 i.onClick();
               }}
-              className={`block w-full px-3 py-1.5 text-left text-[12.5px] transition-colors hover:bg-surface-2 ${
+              className={`block w-full px-3 py-1.5 text-left text-body transition-colors hover:bg-surface-2 ${
                 i.danger ? 'text-danger' : 'text-ink-soft hover:text-ink'
               }`}
             >
@@ -528,7 +529,7 @@ export function Switch({
     <button
       onClick={() => onChange(!checked)}
       title={title}
-      className="flex items-center gap-2 text-[11.5px] text-ink-soft transition-colors hover:text-ink"
+      className="flex items-center gap-2 text-meta text-ink-soft transition-colors hover:text-ink"
     >
       <span
         className={`relative inline-block h-4 w-7 shrink-0 rounded-full transition-colors ${
