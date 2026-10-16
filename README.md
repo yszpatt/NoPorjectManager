@@ -51,7 +51,7 @@
 
 不参与自动配对的：系统生成的审计事件（`状态 a → b`、`进度 x% → y%`、`创建项目`）与发布记录——它们没有叙述可承载，不该成为合并宿主。自动配对可用 `git.autoLinkReports = false` 关闭，显式 `refs.commit` 始终有效。
 
-> 提交本身怎么写、什么时候该汇报、什么时候不该汇报，见 Skill 的 `.codebuddy/skills/project-manager/references/git.md`。
+> 提交本身怎么写、什么时候该汇报、什么时候不该汇报，见 Skill 的 `skills/project-manager/references/git.md`。
 
 ## 快速开始
 
@@ -118,7 +118,7 @@ npm run mcp:stdio      # stdio：本地 Agent / harness 直连（本地场景推
 
 `cG0…` 是 `pm:<口令>` 的 base64（`printf 'pm:口令' | base64`）。MCP 与看板共用同一套凭据，所以 MCP 不再是一个"谁都能读写"的裸端口。若端口已收回回环、不需要认证，去掉 `headers` 即可。
 
-详见 `.codebuddy/skills/project-manager/references/registration.md`。
+详见 `skills/project-manager/references/registration.md`。
 
 ## 目录结构
 
@@ -139,6 +139,9 @@ src/
 ├── collectors/            # Git 采集器，预留 GitHub/Jira/CI
 ├── cli/                   # CLI 入口（人工操作与 hooks 共用）
 └── app.ts                 # 组合根
+
+skills/                    # 跨工具中立的 Agent 资产：不属于任何编辑器
+└── project-manager/       # 看板 Skill（真源）；各编辑器在自己目录里放链接即可
 
 web/                       # 看板前端（React + Vite + Tailwind v4，图表为自绘 SVG）
 ├── src/views/             # Board / Feed / Today / Table 四视图
@@ -253,7 +256,7 @@ roadmap:
 | 每日计划 | `pm_generate_daily_plan` `pm_get_daily_plan` `pm_upsert_daily_task` `pm_complete_daily_task` |
 | 集成与配置 | `pm_sync_git` `pm_get_config` `pm_update_config` |
 
-资源：`pm://brief/today`、`pm://summary`。完整参数见 `.codebuddy/skills/project-manager/references/tools.md`。
+资源：`pm://brief/today`、`pm://summary`。完整参数见 `skills/project-manager/references/tools.md`。
 
 ### 每日计划是怎么生成的
 
@@ -273,12 +276,22 @@ roadmap:
 
 ## Skill 与 Hooks
 
-- **Skill**：`.codebuddy/skills/project-manager/`，教 Agent 何时以及如何读写看板。SKILL.md 保持精简，细节放在 `references/`（conventions / tools / workflows / registration），按需加载。
+- **Skill**：`skills/project-manager/`，教 Agent 何时以及如何读写看板。SKILL.md 保持精简，细节放在 `references/`（conventions / tools / workflows / registration），按需加载。
+
+  真源放在中立的 `skills/`，**不属于任何编辑器**。各工具只在自己的 skill 目录里放**链接**，例如本机 CodeBuddy：
+
+  ```powershell
+  New-Item -ItemType Junction -Path .codebuddy/skills/project-manager -Target (Resolve-Path skills/project-manager)
+  ```
+
+  链接是本机环境的一部分，已 gitignore —— 换台机器重新建一次即可，不用改仓库。
 - **Hooks**（`.codebuddy/settings.json`）：
   - `SessionStart` → 打印今日简报进上下文
   - `SessionEnd` → 自动 `pm git sync`，把提交转成时间线事件
 
 > ⚠️ CodeBuddy 的 `/hooks` 面板是权威入口：直接编辑 `settings.json` 后需在面板中确认/启用。所有 hook 脚本永远 `exit 0`，不会阻断会话。
+>
+> 进版本库的只有 CodeBuddy 的注册格式。hook 脚本本身是工具无关的（跑 `bin/pm.mjs brief` 再打印），其他工具照 `.codebuddy/hooks/` 里的实现自行注册即可。
 
 ## 扩展点
 

@@ -40,9 +40,17 @@ export interface Reminder {
   suggestion: string;
 }
 
+/** 卡片上列出的未来规划项 */
+export interface PlanFocus {
+  title: string;
+  due?: string;
+  status: 'planned' | 'in_progress' | 'done' | 'dropped';
+}
+
 /**
  * 看板卡片。
- * 前六个字段是卡片的信息主体（发布 / 计划 / 思考）；
+ * 信息主体是「接下来做什么」与「最近想了什么」——
+ * plans 列最近几条未完成的未来规划，updates 列最近几条记录。
  * 后半部分（progress、target_date、goals）保留给详情页与 Agent，卡片不展示。
  */
 export interface Card {
@@ -58,13 +66,15 @@ export interface Card {
   event_count: number;
   days_since_activity: number;
   updated_at: string;
-  /** 最近一次发布；从未发布为 null */
+  /** 最近一次发布；从未发布为 null。表格视图与详情页用，卡片不再展示 */
   last_release: ReleaseInfo | null;
   release_count: number;
-  /** 后续计划：最近一项未完成项（不要求有日期）+ 其余数量 */
-  next_plan: { title: string; due?: string; remaining: number } | null;
-  /** 最近一条思考/记录 */
-  last_update: LastUpdate | null;
+  /** 未来规划：最多 3 条未完成项 */
+  plans: PlanFocus[];
+  /** 未完成规划总数（卡片上的「还有 N 条」） */
+  open_plans: number;
+  /** 最近 3 条思考/记录 */
+  updates: LastUpdate[];
   /** 计划停滞提醒；没有命中为 null */
   reminder: Reminder | null;
   /** 以下不在卡片上展示 */
@@ -146,7 +156,7 @@ export interface TimelineEntry {
   commits?: LinkedCommit[];
 }
 
-export interface ProjectDetail extends Omit<Card, 'last_update'> {
+export interface ProjectDetail extends Omit<Card, 'updates'> {
   body: string;
   created_at: string;
   updated_at: string;

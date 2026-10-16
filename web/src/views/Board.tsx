@@ -23,13 +23,12 @@ interface Props {
 /**
  * 看板视图。
  *
- * 卡片固定 5 行，按「项目档案」的关注点排列：
+ * 卡片按「项目档案」的关注点排列：
  *   ① 名称 + 状态
  *   ② 提醒（仅计划停滞时出现）
- *   ③ 最近一次发布
- *   ④ 后续计划
- *   ⑤ 最近一条记录
- * 进度百分比与截止日期不在卡片上——它们在详情页。
+ *   ③ 未来规划（最多 3 条未完成项）
+ *   ④ 最近记录（最多 3 条）
+ * 发布情况、进度百分比与截止日期都不在卡片上——它们在表格视图与详情页。
  */
 export function Board({ cards, onOpen, onChanged, notify }: Props) {
   const [dragId, setDragId] = useState<string | null>(null);
@@ -148,10 +147,8 @@ function ProjectCard({
 }) {
   const statusMeta = STATUS_META[card.status];
   const rem = card.reminder;
-  const release = card.last_release;
-  const plan = card.next_plan;
-  const last = card.last_update;
-  const source = last ? SOURCE_META[last.source] : null;
+  const { plans, open_plans: openPlans, updates } = card;
+  const hiddenPlans = Math.max(0, openPlans - plans.length);
 
   return (
     <article
@@ -186,60 +183,69 @@ function ProjectCard({
         </p>
       )}
 
-      {/* ③ 最近一次发布 */}
-      <p className="mt-1 flex items-center gap-1.5 text-[11px]">
-        <span className="shrink-0 text-ink-mute">▲</span>
-        {release ? (
-          <>
-            <span className="shrink-0 font-medium text-ok" title={release.note ?? ''}>
-              {release.version}
-            </span>
-            <span className="min-w-0 flex-1 truncate text-ink-mute" title={release.note ?? ''}>
-              {release.note ?? ''}
-            </span>
-            <span className="shrink-0 text-[10px] text-ink-mute">{relTime(release.date)}</span>
-          </>
+      {/* ③ 未来规划：最多 3 条未完成项 */}
+      <div className="mt-2">
+        <CardLabel
+          icon="⚑"
+          text="未来规划"
+          note={hiddenPlans > 0 ? `还有 ${hiddenPlans} 条` : undefined}
+        />
+        {plans.length > 0 ? (
+          <ul className="mt-0.5 flex flex-col gap-0.5">
+            {plans.map((plan, i) => (
+              <li key={i} className="flex items-baseline gap-1.5 text-[11px] leading-snug">
+                <span
+                  className={`min-w-0 flex-1 truncate ${
+                    plan.status === 'in_progress' ? 'text-ink-soft' : 'text-ink-mute'
+                  }`}
+                  title={plan.title}
+                >
+                  {plan.status === 'in_progress' && <span className="mr-0.5 text-accent">▸</span>}
+                  {plan.title}
+                </span>
+                {plan.due && (
+                  <span className="shrink-0 text-[10px] text-ink-mute">{plan.due.slice(5)}</span>
+                )}
+              </li>
+            ))}
+          </ul>
         ) : (
-          <span className="text-ink-mute">尚未发布</span>
+          <p className="mt-0.5 text-[11px] text-ink-mute">没有后续计划</p>
         )}
-      </p>
+      </div>
 
-      {/* ④ 后续计划 */}
-      <p className="mt-1 flex items-center gap-1.5 text-[11px]">
-        <span className="shrink-0 text-ink-mute">⚑</span>
-        {plan ? (
-          <>
-            <span className="min-w-0 flex-1 truncate text-ink-soft" title={plan.title}>
-              {plan.title}
-            </span>
-            {plan.remaining > 0 && (
-              <span
-                className="shrink-0 text-[10px] text-ink-mute"
-                title={`还有 ${plan.remaining} 项后续计划`}
-              >
-                +{plan.remaining}
-              </span>
-            )}
-          </>
+      {/* ④ 最近记录：最多 3 条 */}
+      <div className="mt-2">
+        <CardLabel icon="✎" text="最近记录" />
+        {updates.length > 0 ? (
+          <ul className="mt-0.5 flex flex-col gap-0.5">
+            {updates.map((u, i) => (
+              <li key={i} className="flex items-baseline gap-1.5 text-[11px] leading-snug">
+                <span className="shrink-0 text-[10px] text-ink-mute">
+                  {(SOURCE_META[u.source]?.label ?? '记录').slice(0, 1)}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-ink-mute" title={u.content}>
+                  {u.content}
+                </span>
+                <span className="shrink-0 text-[10px] text-ink-mute">{relTime(u.ts)}</span>
+              </li>
+            ))}
+          </ul>
         ) : (
-          <span className="text-ink-mute">没有后续计划</span>
+          <p className="mt-0.5 text-[11px] text-ink-mute">还没有任何记录</p>
         )}
-      </p>
-
-      {/* ⑤ 最近一条记录 */}
-      <p className="mt-1 flex items-center gap-1.5 text-[11px]">
-        <span className="shrink-0 text-ink-mute">{source ? source.label.slice(0, 1) : '✎'}</span>
-        {last && source ? (
-          <>
-            <span className="min-w-0 flex-1 truncate text-ink-mute" title={last.content}>
-              {last.content}
-            </span>
-            <span className="shrink-0 text-[10px] text-ink-mute">{relTime(last.ts)}</span>
-          </>
-        ) : (
-          <span className="text-ink-mute">还没有任何记录</span>
-        )}
-      </p>
+      </div>
     </article>
+  );
+}
+
+/** 卡片里的小节标题：图标 + 名称 + 可选的右侧说明 */
+function CardLabel({ icon, text, note }: { icon: string; text: string; note?: string }) {
+  return (
+    <div className="flex items-baseline gap-1.5 text-[10px] tracking-wide text-ink-mute">
+      <span className="shrink-0">{icon}</span>
+      <span className="font-medium">{text}</span>
+      {note && <span className="ml-auto shrink-0">{note}</span>}
+    </div>
   );
 }

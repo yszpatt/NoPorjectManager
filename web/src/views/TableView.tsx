@@ -36,7 +36,7 @@ export function TableView({ cards, onOpen }: Props) {
         case 'release':
           return c.last_release ? -Date.parse(c.last_release.date) : 0;
         case 'plan':
-          return c.next_plan?.title ?? '';
+          return c.plans[0]?.title ?? '';
         case 'idle':
           return -c.days_since_activity;
         default:
@@ -81,6 +81,7 @@ export function TableView({ cards, onOpen }: Props) {
         <tbody>
           {rows.map((c) => {
             const rem = c.reminder;
+            const plan = c.plans[0];
             return (
               <tr
                 key={c.id}
@@ -127,14 +128,14 @@ export function TableView({ cards, onOpen }: Props) {
                   )}
                 </td>
                 <td className="max-w-[220px] px-3 py-2">
-                  {c.next_plan ? (
+                  {plan ? (
                     <span className="flex items-baseline gap-1.5">
-                      <span className="truncate text-ink-soft" title={c.next_plan.title}>
-                        {c.next_plan.title}
+                      <span className="truncate text-ink-soft" title={plan.title}>
+                        {plan.title}
                       </span>
-                      {c.next_plan.remaining > 0 && (
+                      {c.open_plans > 1 && (
                         <span className="shrink-0 text-[10.5px] text-ink-mute">
-                          +{c.next_plan.remaining}
+                          +{c.open_plans - 1}
                         </span>
                       )}
                     </span>

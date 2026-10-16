@@ -250,10 +250,10 @@ export class Store {
   }
 
   /**
-   * 每个项目最近一条**合并后**的记录，键为项目 id。
+   * 每个项目最近 `limit` 条**合并后**的记录，键为项目 id。
    * 卡片摘要用它：提交若已并入某条汇报，就不该再单独顶在卡片上。
    */
-  latestMerged(): Map<string, MergedRecord> {
+  latestMerged(limit = 1): Map<string, MergedRecord[]> {
     const rows = this.db.recentEventsPerProject(40);
     const byProject = new Map<string, Update[]>();
     for (const e of rows) {
@@ -261,11 +261,11 @@ export class Store {
       list.push(e);
       byProject.set(e.project_id, list);
     }
-    const out = new Map<string, MergedRecord>();
+    const out = new Map<string, MergedRecord[]>();
     for (const [pid, list] of byProject) {
-      // list 已是 ts 倒序，mergeRecords 保持输入顺序，取第一个即为最新
-      const merged = mergeRecords(list, { windowMinutes: this.mergeWindow() })[0];
-      if (merged) out.set(pid, merged);
+      // list 已是 ts 倒序，mergeRecords 保持输入顺序，取前 limit 条即为最近的若干条
+      const merged = mergeRecords(list, { windowMinutes: this.mergeWindow() }).slice(0, limit);
+      if (merged.length) out.set(pid, merged);
     }
     return out;
   }

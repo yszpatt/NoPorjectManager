@@ -20,11 +20,19 @@
 | `limit` | number | 截断条数 |
 | `detail` | `card` \| `full` | 默认 `card`；`full` 返回完整字段（不含正文） |
 
-卡片含 `id / name / description / status / progress / progress_derived / priority / tags / health / health_reason / momentum / event_count / days_since_activity / target_date / days_to_target / next_milestone / next_goal / open_goals / last_update`。
+卡片字段分两类。
 
-- `next_milestone`：最该被看到的未完成路线图项 `{ title, due?, remaining }`。**不保证有 `due`**（进行中的规划可能未排期），`remaining` 是其余未完成条数
-- `next_goal`：最近的未完成**量化**目标 `{ title, current, target, metric? }`；没有 `metric`/`target` 的目标不会出现在这里
-- `last_update`：最近一条进展 `{ source, type, ts, content }`
+**信息主体**（看板卡片展示）：`id / name / description / status / priority / tags / health / health_reason / momentum / event_count / days_since_activity / updated_at / plans / open_plans / updates / reminder`。
+
+- `plans`：**最多 3 条**未完成的未来规划 `{ title, due?, status }`，排序为「进行中 → 有日期（近的在前）→ 其余」。`due` 不保证存在——进行中的规划常常未排期
+- `open_plans`：未完成规划总数。卡片要显示「还有 N 条」时用 `open_plans - plans.length`
+- `updates`：**最近 3 条**记录 `{ source, type, ts, content }`；`content` 只保留首行结论（截断 90 字）
+- `reminder`：计划停滞提醒；没有命中为 `null`
+
+**给表格视图 / 详情页 / Agent 用**：`last_release / release_count / progress / progress_derived / target_date / days_to_target / goals / open_goals`。
+
+- `last_release` / `release_count`：最近一次发布与累计次数。**卡片上已不展示**
+- `progress` / `target_date` / `goals` 等同样不上卡片，需要时读它们即可
 
 ### `pm_get_project`
 读项目详情。

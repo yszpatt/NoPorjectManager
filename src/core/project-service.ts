@@ -149,15 +149,15 @@ export class ProjectService {
 
   /**
    * 卡片级视图：适合 agent 批量读取、看板渲染。
-   * 按"自用工具"的关注点组织——发布记录、后续计划、最近思考在前，
-   * 进度百分比与截止日期保留在数据里（详情页用），但不作为卡片的信息主体。
+   * 关注点是「接下来做什么」与「最近想了什么」——
+   * 前者给最多 CARD_PLANS 条未完成规划，后者给最近 CARD_UPDATES 条记录。
+   * 进度百分比与截止日期保留在数据里（详情页用），不作为卡片的信息主体。
    */
   cards(filter: ProjectFilter = {}) {
-    // 合并后的最新记录：提交若已并入某条汇报，就不该再单独顶在卡片上
-    const latest = this.store.latestMerged();
+    // 合并后的最近若干条记录：提交若已并入某条汇报，就不该再单独顶在卡片上
+    const recent = this.store.latestMerged(CARD_UPDATES);
     const stalledAfter = this.store.config.reminders.planStalledAfterDays;
     return this.list(filter).map((p) => {
-      const last = latest.get(p.id);
       return {
         id: p.id,
         name: p.name,
@@ -171,21 +171,20 @@ export class ProjectService {
         event_count: p.event_count,
         days_since_activity: p.days_since_activity,
         updated_at: p.updated_at,
-        /** 最近一次发布与累计次数 —— 独立开发最值得留档的东西 */
+        /** 最近一次发布与累计次数 —— 详情页与表格视图用，卡片上不再展示 */
         last_release: p.last_release,
         release_count: p.release_count,
-        /** 后续计划：最近一项未完成项（不要求有日期）+ 其余条数 */
-        next_plan: roadmapFocus(p),
-        /** 最近一条思考/记录 */
+        /** 未来规划：最多 CARD_PLANS 条未完成项 + 未完成总数（卡片上的「还有 N 条」） */
+        plans: roadmapPlans(p, CARD_PLANS),
+        open_plans: openRoadmap(p).length,
+        /** 最近 CARD_UPDATES 条思考/记录 */
         // 记录是「结论 + 分条」格式，卡片只留结论那一行
-        last_update: last
-          ? {
-              source: last.source,
-              type: last.type,
-              ts: last.ts,
-              content: truncate(firstLine(last.content), 90),
-            }
-          : null,
+        updates: (recent.get(p.id) ?? []).map((e) => ({
+          source: e.source,
+          type: e.type,
+          ts: e.ts,
+          content: truncate(firstLine(e.content), 90),
+        })),
         /** 计划停滞提醒；没有命中则为 null */
         reminder: reminderOf(p, stalledAfter),
         /** 以下字段保留给详情页与 agent，看板卡片不展示 */
@@ -585,26 +584,35 @@ function healthRank(h: string): number {
   return { blocked: 0, at_risk: 1, stale: 2, unknown: 3, on_track: 4, done: 5 }[h] ?? 6;
 }
 
+/** 卡片上列出的未来规划条数 */
+const CARD_PLANS = 3;
+/** 卡片上列出的最近记录条数 */
+const CARD_UPDATES = 3;
+
+/** 未完成的路线图项：done / dropped 都算已完成 */
+function openRoadmap(p: ProjectView): RoadmapItem[] {
+  return p.roadmap.filter((r) => r.status !== 'done' && r.status !== 'dropped');
+}
+
 /**
- * 取"最该被看到的"一项未来规划。
+ * 取最该被看到的若干条未来规划。
  *
- * 不强制要求有 due：早先只挑有日期的条目，导致"进行中但未排期"的里程碑
+ * 不强制要求有 due：早先只挑有日期的条目，导致「进行中但未排期」的里程碑
  * 在卡片上完全消失，而它恰恰是最该被看到的。
- * 优先级：进行中（同日取更早）→ 有日期的取最早 → 任意未完成项。
+ * 排序：进行中 → 有日期（近的在前）→ 其余；无日期排最后，避免未排期的条目抢占位置。
  */
-function roadmapFocus(
+function roadmapPlans(
   p: ProjectView,
-): { title: string; due?: string; remaining: number } | null {
-  const open = p.roadmap.filter((r) => r.status !== 'done' && r.status !== 'dropped');
-  if (!open.length) return null;
-  // 无日期排最后，避免排期未定的条目抢占位置
-  const byDue = (
-    a: { due?: string },
-    b: { due?: string },
-  ): number => (a.due ?? '9999-12-31').localeCompare(b.due ?? '9999-12-31');
-  const inProgress = open.filter((r) => r.status === 'in_progress').sort(byDue);
-  const pick = inProgress[0] ?? [...open].filter((r) => r.due).sort(byDue)[0] ?? open[0]!;
-  return { title: pick.title, due: pick.due, remaining: open.length - 1 };
+  limit: number,
+): Array<{ title: string; due?: string; status: RoadmapItem['status'] }> {
+  const byDue = (a: { due?: string }, b: { due?: string }): number =>
+    (a.due ?? '9999-12-31').localeCompare(b.due ?? '9999-12-31');
+  const rank = (r: RoadmapItem): number => (r.status === 'in_progress' ? 0 : r.due ? 1 : 2);
+  return openRoadmap(p)
+    .slice()
+    .sort((a, b) => rank(a) - rank(b) || byDue(a, b))
+    .slice(0, limit)
+    .map((r) => ({ title: r.title, due: r.due, status: r.status }));
 }
 
 

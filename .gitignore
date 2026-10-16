@@ -10,15 +10,37 @@ dist/
 .env.*
 !.env.example
 
-# 项目级 MCP 配置：里面的 Authorization 头含看板 Basic 口令，不进版本库。
-# WorkTime 初始化时会生成这些文件；要让别的机器直接复用配置就改用
-# `worktime.py init --cred-mode env`（写 ${PM_MCP_AUTH} 占位）并去掉下面几行。
+# ---- 本机开发环境：编辑器配置与技能副本 ----
+# WorkTime 的原则是「仓库里只放项目代码」：这些目录由它在**执行初始化的那台机器**
+# 上按当时的地址与口令生成，换台机器就该重新生成，提交上去只会互相打架、
+# 还会把本机情况带出去。要跨机器共享配置用 `worktime.py init --cred-mode env`。
+# 规则正文留在仓库根的 AGENTS.md —— 那才是要提交的那一份。
+.claude/
+.cursor/
+.clinerules/
+.vscode/
+.workbuddy/
 .mcp.json
-.cursor/mcp.json
-.vscode/mcp.json
-.codebuddy/mcp.json
-.workbuddy/mcp.json
+
+# ---- .codebuddy/ 整体属于本机开发环境 ----
+# skill 真源已移到中立的 skills/（跨工具），这里的 skills/ 只是各工具的适配层
+# （本机用 junction 指向 skills/project-manager），所以整个目录不必进版本库。
+.codebuddy/*
+# 例外：hooks 与 settings.json 是看板自己的功能实现（SessionStart 注入今日简报），
+# 不是本机环境 —— 少了它们，clone 的人就得不到自动简报。
+!.codebuddy/settings.json
+!.codebuddy/hooks/
+
+# MCP 配置的手工备份：实测内容与正式配置相同，含明文看板 Basic 口令。
+# 文件名不匹配上面任何规则，任何一次 `git add -A` 都会把它带进这个公开仓库。
+*.bak-*
+
+# 项目内机器本地配置（含凭据）
 .worktime/
+
+# 编辑器杂项
+.idea/
+*.iml
 
 # 面板里设置的访问凭据。虽然只存 scrypt 派生值、不含明文，
 # 但既然整个 .projectmanager/ 已经忽略，这里再单独兜一条：
